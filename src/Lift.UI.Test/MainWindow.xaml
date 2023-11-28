@@ -11,5 +11,13 @@
     Height="450"
     SystemBackdropType="Tabbed"
     mc:Ignorable="d">
-    <Grid />
+    <StackPanel Orientation="Vertical">
+        <Button Width="300" Height="100 " />
+
+        <TextBox Margin="10" />
+
+        <liftui:RangeSlider />
+
+        <TextBlock Text="{x:Static liftui:LangKeys.Clear}" />
+    </StackPanel>
 </liftui:Window>
