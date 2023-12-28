@@ -6,18 +6,16 @@
     xmlns:liftui="https://github.com/pchuan98/Lift.UI"
     xmlns:local="clr-namespace:Lift.UI.Test"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:propertyGrid1="clr-namespace:Lift.UI.V2.Controls.PropertyGrid;assembly=Lift.UI"
     Title="MainWindow"
-    Width="800"
-    Height="450"
+    Width="600"
+    Height="650"
     SystemBackdropType="Tabbed"
+    Topmost="True"
     mc:Ignorable="d">
-    <StackPanel Orientation="Vertical">
-        <Button Width="300" Height="100 " />
+    <UniformGrid>
+        <propertyGrid1:PropertyGrid x:Name="LiftUiPropertyGrid" />
+        <!--<propertyGrid:PropertyGrid x:Name="PdPropertyGrid" Style="{StaticResource PropertyGrid.Base}" />-->
 
-        <TextBox Margin="10" />
-
-        <liftui:RangeSlider />
-
-        <TextBlock Text="{x:Static liftui:LangKeys.Clear}" />
-    </StackPanel>
+    </UniformGrid>
 </liftui:Window>
