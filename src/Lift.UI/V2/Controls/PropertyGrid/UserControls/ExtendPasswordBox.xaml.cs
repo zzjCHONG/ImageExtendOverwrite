@@ -19,20 +19,19 @@ namespace Lift.UI.V2.Controls.PropertyGrid.UserControls;
 /// <summary>
 /// Interaction logic for ExtendPasswordBox.xaml
 /// </summary>
-public partial class ExtendPasswordBox : UserControl
+public partial class ExtendPasswordBox
 {
     public ExtendPasswordBox()
     {
         InitializeComponent();
 
-        this.PasswordBox.PasswordChanged += (s, e) =>
-        {
-            this.ActualPassword = PasswordBox.Password;
-        };
+        PasswordBox.PasswordChanged += (s, e)
+            => SetValue(ActualPasswordProperty, PasswordBox.Password);
     }
 
     public static readonly DependencyProperty ActualPasswordProperty = DependencyProperty.Register(
-        nameof(ActualPassword), typeof(string), typeof(ExtendPasswordBox), new PropertyMetadata(null));
+        nameof(ActualPassword), typeof(string), typeof(ExtendPasswordBox),
+        new FrameworkPropertyMetadata(null, FrameworkPropertyMetadataOptions.BindsTwoWayByDefault));
 
     public string? ActualPassword
     {
