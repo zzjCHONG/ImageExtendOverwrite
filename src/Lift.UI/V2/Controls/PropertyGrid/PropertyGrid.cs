@@ -11,6 +11,7 @@ using System.Windows.Input;
 using Lift.UI.Controls;
 using Lift.UI.Tools;
 using Lift.UI.Tools.Extension;
+using Lift.UI.V2.Controls.PropertyGrid.Editors;
 
 namespace Lift.UI.V2.Controls.PropertyGrid;
 
@@ -97,6 +98,24 @@ public class PropertyGrid : Control
 
     #endregion
 
+    public static readonly DependencyProperty FilterFuncProperty = DependencyProperty.Register(
+        nameof(FilterFunc), typeof(Func<MemberInfo, bool>), typeof(PropertyGrid), new PropertyMetadata(null, OnFilterFuncChanged));
+
+    private static void OnFilterFuncChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
+    {
+        if (d is not PropertyGrid pg || pg.FilterFunc is null) return;
+        pg.UpdateItems(pg.SelectedObject);
+    }
+
+    /// <summary>
+    /// 用于通用过滤，相较于使用特性<see cref="PropertyGridAttribute"/>会更加灵活
+    /// </summary>
+    public Func<MemberInfo, bool>? FilterFunc
+    {
+        get => (Func<MemberInfo, bool>?) GetValue(FilterFuncProperty);
+        set => SetValue(FilterFuncProperty, value);
+    }
+
     /// <summary>
     /// <inheritdoc />
     /// </summary>
@@ -128,16 +147,11 @@ public class PropertyGrid : Control
         if (obj == null || _itemsControl == null) return;
 
         _dataView = CollectionViewSource.GetDefaultView(obj.GetMembers()
+            .Where(info => FilterFunc?.Invoke(info) ?? true)
             .Select(s => PropertyItem.FromMemberInfo(s, obj))
             .Where(item => !item.PropertyGridAttribute?.Ignore ?? true)
             .Do(item => item.Editor = GetEditor(item))
             .Do(item => item.InitElement()));
-
-        var s = obj.GetMembers()
-            .Select(s => PropertyItem.FromMemberInfo(s, obj))
-            .Where(item => !item.PropertyGridAttribute?.Ignore ?? true);
-
-        var sfae = s.ToArray()[0].BindingType.ToString().ToLower();
 
         _dataView.GroupDescriptions.Add(new PropertyGroupDescription("PropertyGridAttribute.GroupName"));
 
@@ -166,6 +180,22 @@ public class PropertyGrid : Control
             _dataView.SortDescriptions.Clear();
             _dataView.SortDescriptions.Add(new SortDescription(PropertyItem.DisplayNameProperty.Name,
                 reverse is false ? ListSortDirection.Ascending : ListSortDirection.Descending));
+        }
+    }
+
+    /// <summary>
+    /// 根据内容指定顺序
+    /// </summary>
+    /// <param name="reverse"></param>
+    public void SortByIndex(bool reverse = false)
+    {
+        if (_dataView == null) return;
+        using (_dataView.DeferRefresh())
+        {
+            _dataView.GroupDescriptions.Clear();
+            _dataView.SortDescriptions.Clear();
+            _dataView.SortDescriptions.Add(new SortDescription("PropertyGridAttribute.Index"
+                , reverse is false ? ListSortDirection.Ascending : ListSortDirection.Descending));
         }
     }
 
@@ -212,6 +242,8 @@ public class PropertyGrid : Control
         {EditorDictKeys.ReadOnlyWithTextBox,typeof(ReadOnlyWithTextBoxEditor)},
         {EditorDictKeys.ReadOnlyWithTextBlock,typeof(ReadOnlyWithTextBlockEditor)},
         {EditorDictKeys.SwitchProperty,typeof(SwitchPropertyEditor)},
+        {EditorDictKeys.TextBox,typeof(TextBoxEditor)},
+        {EditorDictKeys.PasswordBox,typeof(PasswordBoxEditor)}
     };
 
     /// <summary>
@@ -233,6 +265,16 @@ public class PropertyGrid : Control
         /// 
         /// </summary>
         public const string SwitchProperty = "SwitchPropertyEditor";
+
+        /// <summary>
+        /// 
+        /// </summary>
+        public const string TextBox = "TextBoxEditor";
+
+        /// <summary>
+        /// 
+        /// </summary>
+        public const string PasswordBox = "PasswordBoxEditor";
     }
 
     /// <summary>
@@ -247,7 +289,7 @@ public class PropertyGrid : Control
         if (type.BaseType != typeof(BasePropertyEditor))
             throw new Exception("The editor type must inherit the BasePropertyEditor");
 
-        if (EditorDict.Keys.Contains(key))
+        if (EditorDict.ContainsKey(key))
             throw new Exception($"The key: {key} has already been registered");
 
         return EditorDict.TryAdd(key, type);

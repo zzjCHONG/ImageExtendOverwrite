@@ -41,6 +41,11 @@ public class PropertyGridAttribute : Attribute
     /// </summary>
     public bool Ignore { get; set; } = false;
 
+    /// <summary>
+    /// 整体排序顺序
+    /// </summary>
+    public int Index { get; set; } = 0;
+
     #endregion
 
     // todo 附属属性

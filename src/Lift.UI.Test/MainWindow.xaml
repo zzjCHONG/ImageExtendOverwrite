@@ -14,7 +14,7 @@
     Topmost="True"
     mc:Ignorable="d">
     <UniformGrid>
-        <propertyGrid1:PropertyGrid x:Name="LiftUiPropertyGrid" />
+        <propertyGrid1:PropertyGrid x:Name="LiftUiPropertyGrid" MaxTitleWidth="400" />
         <!--<propertyGrid:PropertyGrid x:Name="PdPropertyGrid" Style="{StaticResource PropertyGrid.Base}" />-->
 
     </UniformGrid>

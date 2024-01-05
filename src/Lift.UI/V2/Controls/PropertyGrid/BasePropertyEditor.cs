@@ -48,7 +48,7 @@ public abstract class BasePropertyEditor : DependencyObject
     /// <param name="propertyItem"></param>
     /// <returns></returns>
     public virtual BindingMode GetBindingMode(PropertyItem propertyItem) =>
-        propertyItem.PropertyGridAttribute?.ReadOnly is false ? BindingMode.OneWay : BindingMode.TwoWay;
+        propertyItem.PropertyGridAttribute?.ReadOnly is false ? BindingMode.TwoWay : BindingMode.OneWay;
 
     /// <summary>
     /// 默认当属性改变的时候更新数据源

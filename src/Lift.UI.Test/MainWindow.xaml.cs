@@ -32,11 +32,13 @@ public partial class MainWindow
 
         var vm = new MainViewModel();
 
-        LiftUiPropertyGrid.SelectedObject = vm;
+
+
+        LiftUiPropertyGrid.SelectedObject = new PropertyItem();
+        //LiftUiPropertyGrid.FilterFunc = m => !m.Name.Contains("<") && !m.Name.Contains("_");
 
         //LiftUiPropertyGrid.AddEditor(PropertyGrid.EditorDictKeys.ReadOnlyWithTextBox, typeof(ReadOnlyWithTextBoxEditor));
         //PdPropertyGrid.AddEditor(PropertyGrid.EditorDictKeys.ReadOnlyWithTextBox, typeof(ReadOnlyWithTextBoxEditor));
-
     }
 }
 
