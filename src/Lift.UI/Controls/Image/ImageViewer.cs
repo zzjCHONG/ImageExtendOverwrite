@@ -1,5 +1,6 @@
 ﻿using System;
 using System.ComponentModel;
+using System.Diagnostics;
 using System.IO;
 using System.Windows;
 using System.Windows.Controls;
@@ -611,6 +612,7 @@ public class ImageViewer : Control
     {
         base.OnRenderSizeChanged(sizeInfo);
 
+        Init();
         OnRenderSizeChanged();
     }
 
@@ -946,7 +948,16 @@ public class ImageViewer : Control
 
     private static void OnImageSourceChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
     {
-        ((ImageViewer) d).OnImageSourceChanged();
+        // todo 改的更合适了
+        if (d is not ImageViewer viewer) return;
+
+        if (e is not { NewValue: BitmapFrame n, OldValue: BitmapFrame o })
+        {
+            viewer.Init();
+            return;
+        }
+
+        if (!viewer._isLoaded) return;
     }
 
     private void OnImageSourceChanged()
