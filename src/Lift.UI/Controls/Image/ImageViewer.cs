@@ -41,7 +41,7 @@ public class ImageViewer : Control
     /// <summary>
     /// 缩放比间隔
     /// </summary>
-    private const double ScaleInternal = 0.2;
+    private const double ScaleInternal = 0.01;
 
     #endregion Constants
 
@@ -85,6 +85,8 @@ public class ImageViewer : Control
     /// </summary>
     private Thickness _imgActualMargin;
 
+    public Thickness ImageActualMargin => _imgActualMargin;
+
     /// <summary>
     /// 图片实际旋转角度
     /// </summary>
@@ -95,10 +97,14 @@ public class ImageViewer : Control
     /// </summary>
     private double _imgActualScale = 1;
 
+    public double ImageActualScale => _imgActualScale;
+
     /// <summary>
     /// 在图片上鼠标移动时的即时位置
     /// </summary>
     private Point _imgCurrentPoint;
+
+    public Point ImageCurrentPoint => _imgCurrentPoint;
 
     /// <summary>
     /// 鼠标是否在图片上按下
@@ -167,6 +173,28 @@ public class ImageViewer : Control
     private MouseBinding _mouseMoveBinding;
 
     private ImageBrowser _imageBrowser;
+
+    /// <summary>
+    /// 当前鼠标相对整张图的实际像素点位置
+    ///
+    /// (-1,-1) 无效坐标
+    /// </summary>
+    public (int x, int y) ImageCurrentPosition
+    {
+        get
+        {
+            var margin = ImageActualMargin;
+            var scale = ImageActualScale;
+            var pos = ImageCurrentPoint;
+
+            var x = (int) ((pos.X - margin.Left) / scale);
+            var y = (int) ((pos.Y - margin.Top) / scale);
+
+            if (x < 0 || x > ImageOriWidth || y < 0 || y > ImageOriHeight) return (-1, -1);
+
+            return (x, y);
+        }
+    }
 
     #endregion Data
 
