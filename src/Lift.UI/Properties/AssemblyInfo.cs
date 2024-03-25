@@ -12,6 +12,7 @@
 [assembly: XmlnsDefinition("https://github.com/pchuan98/Lift.UI", "Lift.UI.Data")]
 [assembly: XmlnsDefinition("https://github.com/pchuan98/Lift.UI", "Lift.UI.Properties.Langs")]
 [assembly: XmlnsDefinition("https://github.com/pchuan98/Lift.UI", "Lift.UI.Themes")]
+
 #if NET40
 [assembly: XmlnsDefinition("https://github.com/pchuan98/Lift.UI", "Microsoft.Windows.Shell")]
 #endif
