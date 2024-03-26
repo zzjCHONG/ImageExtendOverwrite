@@ -156,6 +156,8 @@ public class PropertyGrid : Control
         _dataView.GroupDescriptions.Add(new PropertyGroupDescription("PropertyGridAttribute.GroupName"));
 
         _itemsControl.ItemsSource = _dataView;
+
+        SortByName();
     }
 
     #region Extension Function
@@ -243,7 +245,9 @@ public class PropertyGrid : Control
         {EditorDictKeys.ReadOnlyWithTextBlock,typeof(ReadOnlyWithTextBlockEditor)},
         {EditorDictKeys.SwitchProperty,typeof(SwitchPropertyEditor)},
         {EditorDictKeys.TextBox,typeof(TextBoxEditor)},
-        {EditorDictKeys.PasswordBox,typeof(PasswordBoxEditor)}
+        {EditorDictKeys.PasswordBox,typeof(PasswordBoxEditor)},
+        {EditorDictKeys.Numeric,typeof(NumericEditor)},
+        {EditorDictKeys.Enum,typeof(EnumEditor)}
     };
 
     /// <summary>
@@ -275,6 +279,16 @@ public class PropertyGrid : Control
         /// 
         /// </summary>
         public const string PasswordBox = "PasswordBoxEditor";
+
+        /// <summary>
+        /// 
+        /// </summary>
+        public const string Numeric = "NumericEditor";
+
+        /// <summary>
+        /// 
+        /// </summary>
+        public const string Enum = "EnumEditor";
     }
 
     /// <summary>
