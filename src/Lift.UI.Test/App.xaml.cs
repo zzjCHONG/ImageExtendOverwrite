@@ -22,7 +22,7 @@ namespace Lift.UI.Test
             //ConfigHelper.Instance.SetLang("");
             //var jump = Lift.UI.Properties.Langs.LangProvider.GetLang("Jump");
 
-            var windows = new MainWindow();
+            var windows = new Window1();
             windows.Show();
         }
     }

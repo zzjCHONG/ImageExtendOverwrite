@@ -33,7 +33,8 @@ public abstract class BasePropertyEditor : DependencyObject
                 Source = propertyItem.Value,
                 Mode = GetBindingMode(propertyItem),
                 UpdateSourceTrigger = GetUpdateSourceTrigger(propertyItem),
-                Converter = GetConverter(propertyItem)
+                Converter = GetConverter(propertyItem),
+                Delay = propertyItem.PropertyGridAttribute.Delay
             });
 
     /// <summary>

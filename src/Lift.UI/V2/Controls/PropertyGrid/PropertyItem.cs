@@ -116,8 +116,16 @@ public class PropertyItem : ListBoxItem
         EditorElement = Editor.CreateElement(this);
         Editor.CreateBinding(this, EditorElement);
 
-        Tips = PropertyGridAttribute?.Tips;
+        Tips = SplitString(PropertyGridAttribute?.Tips, PropertyGridAttribute?.MaxTipsLength ?? -1);
     }
+
+    private string? SplitString(string? tips, int lenght)
+        => lenght < 0 || tips is null
+            ? tips
+            : string.Join(Environment.NewLine,
+                Enumerable.Range(0, (int) Math.Ceiling((double) tips.Length / lenght))
+                .Select(i => tips.Substring(i * lenght, Math.Min(lenght, tips.Length - i * lenght)))
+                .ToArray());
 
     /// <summary>
     /// 

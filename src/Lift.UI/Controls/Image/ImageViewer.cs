@@ -41,7 +41,7 @@ public class ImageViewer : Control
     /// <summary>
     /// 缩放比间隔
     /// </summary>
-    private const double ScaleInternal = 0.4;
+    private const double ScaleInternal = 0.1;
 
     #endregion Constants
 

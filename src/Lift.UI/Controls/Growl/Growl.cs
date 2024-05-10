@@ -97,7 +97,7 @@ public class Growl : Control
     /// <summary>
     /// 消息容器
     /// </summary>
-    public static Panel GrowlPanel { get; set; }
+    public static Panel? GrowlPanel { get; set; }
 
     public InfoType Type
     {
@@ -376,7 +376,7 @@ public class Growl : Control
 
     private static void ShowGlobal(GrowlInfo growlInfo)
     {
-        Application.Current.Dispatcher?.Invoke(
+        Application.Current.Dispatcher?.BeginInvoke(
 #if NET40
             new Action(
 #endif
@@ -479,7 +479,9 @@ public class Growl : Control
                 else
                 {
                     // GrowlPanel is null, we create it automatically
-                    GrowlPanel ??= CreateDefaultPanel();
+                    var window = growlInfo.ShowInMain ? Application.Current.MainWindow : null;
+                    var name = window.ToString();
+                    GrowlPanel ??= CreateDefaultPanel(window);
                     ShowInternal(GrowlPanel, ctl);
                 }
             }
@@ -489,9 +491,9 @@ public class Growl : Control
         );
     }
 
-    private static Panel CreateDefaultPanel()
+    private static Panel CreateDefaultPanel(FrameworkElement? element = null)
     {
-        FrameworkElement element = WindowHelper.GetActiveWindow();
+        element ??= WindowHelper.GetActiveWindow();
         var decorator = VisualHelper.GetChild<AdornerDecorator>(element);
 
         if (decorator != null)

@@ -1,15 +1,12 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.ComponentModel;
-using System.Diagnostics.Eventing.Reader;
 using System.Linq;
 using System.Reflection;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Data;
-using System.Windows.Input;
 using Lift.UI.Controls;
-using Lift.UI.Tools;
 using Lift.UI.Tools.Extension;
 using Lift.UI.V2.Controls.PropertyGrid.Editors;
 
@@ -326,7 +323,8 @@ public class PropertyGrid : Control
     internal BasePropertyEditor? GetEditor(PropertyItem item)
         => GetEditor(item.PropertyGridAttribute.Editor ?? "") ?? item.BindingType.ToString() switch
         {
-            TypeUtils.Int => GetEditor(EditorDictKeys.ReadOnlyWithTextBox),
+            TypeUtils.Int => GetEditor(EditorDictKeys.Numeric),
+            TypeUtils.Double=>GetEditor(EditorDictKeys.Numeric),
             TypeUtils.Bool => GetEditor(EditorDictKeys.SwitchProperty),
             TypeUtils.String => GetEditor(EditorDictKeys.ReadOnlyWithTextBox),
             _ => GetEditor(EditorDictKeys.ReadOnlyWithTextBlock)

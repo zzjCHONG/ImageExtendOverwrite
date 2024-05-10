@@ -27,6 +27,13 @@ public class PropertyGridAttribute : Attribute
     public string? Tips { get; set; } = null;
 
     /// <summary>
+    /// Tips单行最长的长度
+    ///
+    /// -1 代表不分割
+    /// </summary>
+    public int MaxTipsLength { get; set; } = 50;
+
+    /// <summary>
     /// 是否变量只读
     /// </summary>
     public bool ReadOnly { get; set; } = false;
@@ -45,6 +52,11 @@ public class PropertyGridAttribute : Attribute
     /// 整体排序顺序
     /// </summary>
     public int Index { get; set; } = 0;
+
+    /// <summary>
+    /// 
+    /// </summary>
+    public int Delay { get; set; } = 0;
 
     #endregion
 

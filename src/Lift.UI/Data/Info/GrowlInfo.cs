@@ -40,6 +40,8 @@ public class GrowlInfo
 
     public FlowDirection FlowDirection { get; set; }
 
+    public bool ShowInMain { get; set; } = false;
+
     public static GrowlInfo Default()
         => new GrowlInfo()
         {
