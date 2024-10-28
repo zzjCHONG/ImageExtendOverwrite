@@ -1,0 +1,42 @@
+﻿<Window
+    x:Class="ImageExLib_Demo.MainWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:imgEx="clr-namespace:ImageExLib;assembly=ImageExLib"
+    xmlns:local="clr-namespace:ImageExLib_Demo"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    Title="MainWindow"
+    Width="800"
+    Height="650"
+    mc:Ignorable="d">
+    <Grid>
+        <UniformGrid>
+            <imgEx:ImageEx
+                x:Name="ImageEx"
+                Width="500"
+                Height="480" />
+            <!--  ImageSource="C:\Users\Administrator\Desktop\控件测试\2_24bit.jpg"  -->
+            
+            <StackPanel
+                Margin="10"
+                HorizontalAlignment="Center"
+                Orientation="Horizontal">
+                <Button
+                    Width="100"
+                    Margin="5"
+                    Command="{x:Static imgEx:ImageEx.ImageProcessCommand}"
+                    CommandParameter="SaveDump"
+                    Content="Save Dump" />
+                <Button
+                    Width="100"
+                    Margin="5"
+                    Command="{x:Static imgEx:ImageEx.ImageProcessCommand}"
+                    CommandParameter="MessageBox"
+                    Content="Show MessageBox" />
+                
+            </StackPanel>
+        </UniformGrid>
+
+    </Grid>
+</Window>

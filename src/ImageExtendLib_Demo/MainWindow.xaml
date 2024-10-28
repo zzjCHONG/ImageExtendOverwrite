@@ -1,0 +1,30 @@
+﻿<Window
+    x:Class="ImageExtendLib_Demo.MainWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:imgDispaly="clr-namespace:ImageExtendLib;assembly=ImageExtendLib"
+    xmlns:local="clr-namespace:ImageExtendLib_Demo"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    Title="MainWindow"
+    Width="1000"
+    Height="800"
+    mc:Ignorable="d">
+
+    <UniformGrid>
+        <imgDispaly:ImageDisplay
+            Width="500"
+            Height="400"
+            Margin="10,0,-20,-20"
+            ImageSource="C:\Users\Administrator\Desktop\控件测试\3_16bit.tif" />
+        <Image
+            Width="500"
+            Height="400"
+            Source="C:\Users\Administrator\Desktop\控件测试\3_16bit.tif" />
+
+
+    </UniformGrid>
+
+
+</Window>
+

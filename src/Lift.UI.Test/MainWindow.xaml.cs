@@ -30,11 +30,11 @@ public partial class MainWindow
     {
         InitializeComponent();
 
-        var vm = new MainViewModel();
+        //var vm = new MainViewModel();
 
 
 
-        LiftUiPropertyGrid.SelectedObject = new PropertyItem();
+        //LiftUiPropertyGrid.SelectedObject = new PropertyItem();
         //LiftUiPropertyGrid.FilterFunc = m => !m.Name.Contains("<") && !m.Name.Contains("_");
 
         //LiftUiPropertyGrid.AddEditor(PropertyGrid.EditorDictKeys.ReadOnlyWithTextBox, typeof(ReadOnlyWithTextBoxEditor));
