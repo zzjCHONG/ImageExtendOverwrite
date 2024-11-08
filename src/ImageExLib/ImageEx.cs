@@ -6,10 +6,21 @@ using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
+using System.Windows.Media.Media3D;
+using System.Windows.Shapes;
+using ImageExLib.ShapeEx;
 using Microsoft.Win32;
 
 namespace ImageExLib
 {
+    //todo，返回相对image的坐标√
+    //返回图形坐标√
+    //网格绘制√
+    //command设置填充模式，button设置绘制模式√
+    //向外传输当前点击坐标、当前网格坐标、绘制信息——实装时考虑
+
+    //todo，contextmenu事件无法正确传递，待解决
+
     public class ImageEx : ContentControl
     {
         static ImageEx()
@@ -19,7 +30,44 @@ namespace ImageExLib
 
         public ImageEx()
         {
-            //图像处理
+            CommandBindings.Add(new CommandBinding(MarkerShapeCommand, (obj, args) =>
+            {
+                if (args.Parameter is not string command) return;
+
+                CleanDraw();//清除之前留下的绘制图形
+
+                ShapePreviewer = Template.FindName(GetCurrentShapeType(true, command), this) as ShapeBase;
+                ShapeMarker = Template.FindName(GetCurrentShapeType(false, command), this) as ShapeBase;
+
+            }));
+
+            CommandBindings.Add(new CommandBinding(GridFillCommand, (obj, args) =>
+            {
+                if (args.Parameter is not string command) return;
+
+                if (command == GridFill)
+                {
+                    if (ShapeMarker is not RectangleShape rectangleShape && ShapeMarker is not PolygonShape polygonShape) return;
+
+                    RefreshFillGridBrush();
+                }
+            }));
+
+            CommandBindings.Add(new CommandBinding(MarkMenuCommand, (obj, args) =>
+            {
+                if (args.Parameter is not string command || ShapeMarker is null) return;
+
+                if (command == Delete)
+                {
+                    //只是隐藏，未实际删除
+                    if (command == Delete) ShapeMarker.Visibility = Visibility.Collapsed;
+                }
+                else if (command == ZoomScale)
+                {
+
+                }
+            }));
+
             CommandBindings.Add(new CommandBinding(ImageProcessCommand, (obj, args) =>
             {
                 if (args.Parameter is not string command) return;
@@ -43,21 +91,663 @@ namespace ImageExLib
                         OpenFolderAndSelectFile(saveFileDialog.FileName);
                     }
                 }
-                else if(command==MsgBox)
+                else if (command == MsgBox)
                 {
-                    MessageBox.Show("asd");
+                    MessageBox.Show("MsgBox Show!");
                 }
             }));
-        }      
+
+        }
+
+        public override void OnApplyTemplate()
+        {
+            base.OnApplyTemplate();
+
+            MainPanel = Template.FindName(NamePartMainPanel, this) as Panel;
+            Scroll = Template.FindName(NamePartScrollView, this) as ScrollViewer;
+            Viewbox = Template.FindName(NamePartViewBox, this) as Viewbox;
+            InkCanvas = Template.FindName(NamePartInkCanvas, this) as InkCanvas;
+
+            OnViewerLoad();
+            OnCanvasLoad();
+
+            RectFillDefaultBrush = (Template.FindName(GetCurrentShapeType(true, "RectMarker"), this) as ShapeBase)!.Fill;
+            //PolygonFillDefaultBrush = (Template.FindName(GetCurrentShapeType(true, "PolygonMarker"), this) as ShapeBase)!.Fill;
+        }
+
+        public (double x, double y) ImageCurrentPosition
+        {
+            get
+            {
+                var pos = Mouse.GetPosition(InkCanvas);
+                return ((double) pos.X, (double) pos.Y);
+            }
+        }
+
+        public (int x, int y) GridFillCurrentPos
+        {
+            get
+            {
+                try
+                {
+                    Point _constrastPoint = new();
+                    double width = 0;
+                    double height = 0;
+
+                    if (ShapeMarker is RectangleShape)
+                    {
+                        width = ShapeMarker!.Width;
+                        height = ShapeMarker!.Height;
+                        _constrastPoint = ShapeMarker!.PointStart;
+                    }
+                    else
+                    {
+                        return (-1, -1);
+                    }
+
+                    var currentPos = Mouse.GetPosition(InkCanvas);
+
+                    double _gridSpacingX = width / XGridCount;
+                    double _gridSpacingY = height / YGridCount;
+
+                    if (_gridSpacingX == 0 || _gridSpacingY == 0) return (-1, -1);
+
+                    int y = (int) Math.Floor((currentPos.Y - _constrastPoint.Y) / _gridSpacingY) + 1;
+                    int x = (int) Math.Floor((currentPos.X - _constrastPoint.X) / _gridSpacingX) + 1;
+
+                    if ((y > XGridCount || y <= 0) || (x > YGridCount || x <= 0))
+                        return (-1, -1);
+
+                    return (x, y);
+                }
+                catch (Exception)
+                {
+                    return (-1, -1);
+                }
+            }
+        }
+
+        #region GridFillCommand
+
+        #region 依赖属性设置
+
+        public static readonly DependencyProperty XGridCountProperty =
+            DependencyProperty.Register(nameof(XGridCount), typeof(int), typeof(ImageEx), new PropertyMetadata(5));
+
+        public static readonly DependencyProperty YGridCountProperty =
+            DependencyProperty.Register(nameof(YGridCount), typeof(int), typeof(ImageEx), new PropertyMetadata(5)); 
+
+        public static readonly DependencyProperty XGridFillCountProperty =
+            DependencyProperty.Register(nameof(XGridFillCount), typeof(int), typeof(ImageEx), new PropertyMetadata(0));
+
+        public static readonly DependencyProperty YGridFillCountProperty =
+            DependencyProperty.Register(nameof(YGridFillCount), typeof(int), typeof(ImageEx), new PropertyMetadata(1));
+
+        public static readonly DependencyProperty GridLineColorProperty =
+            DependencyProperty.Register(nameof(GridLineColor),typeof(Brush),typeof(ImageEx),new PropertyMetadata(Brushes.Red));
+
+        public static readonly DependencyProperty GridFillColorProperty =
+            DependencyProperty.Register(nameof(GridFillColor),typeof(Brush),typeof(ImageEx),new PropertyMetadata(Brushes.LightYellow));
+
+        public static readonly DependencyProperty GridFillThicknessProperty =
+            DependencyProperty.Register(nameof(GridFillThickness),typeof(double),typeof(ImageEx),new PropertyMetadata(1.0));
+
+        public static readonly DependencyProperty XDashesProperty =
+            DependencyProperty.Register(nameof(SolidDashes),typeof(int),typeof(ImageEx),new PropertyMetadata(30));
+
+        public static readonly DependencyProperty YDashesProperty =
+            DependencyProperty.Register(nameof(VirtualDashes),typeof(int),typeof(ImageEx),new PropertyMetadata(30));
+
+
+        public int XGridCount
+        {
+            get => (int) GetValue(XGridCountProperty);
+            set => SetValue(XGridCountProperty, value);
+        }
+
+        public int YGridCount
+        {
+            get => (int) GetValue(YGridCountProperty);
+            set => SetValue(YGridCountProperty, value);
+        }
+
+        public int XGridFillCount
+        {
+            get => (int) GetValue(XGridFillCountProperty);
+            set => SetValue(XGridFillCountProperty, value);
+        }
+
+        public int YGridFillCount
+        {
+            get => (int) GetValue(YGridFillCountProperty);
+            set => SetValue(YGridFillCountProperty, value);
+        }
+
+        public Brush GridLineColor
+        {
+            get => (Brush) GetValue(GridLineColorProperty);
+            set => SetValue(GridLineColorProperty, value);
+        }
+
+        public Brush GridFillColor
+        {
+            get => (Brush) GetValue(GridFillColorProperty);
+            set => SetValue(GridFillColorProperty, value);
+        }
+
+        public double GridFillThickness
+        {
+            get => (double) GetValue(GridFillThicknessProperty);
+            set => SetValue(GridFillThicknessProperty, value);
+        }
+
+        public int SolidDashes
+        {
+            get => (int) GetValue(XDashesProperty);
+            set => SetValue(XDashesProperty, value);
+        }
+
+        public int VirtualDashes
+        {
+            get => (int) GetValue(YDashesProperty);
+            set => SetValue(YDashesProperty, value);
+        }
+        #endregion
+
+        private static Brush? RectFillDefaultBrush;
+
+        private static Brush? PolygonFillDefaultBrush;
+
+        public static readonly RoutedUICommand GridFillCommand = new();
+
+        public const string GridFill = "GridFill";
+
+        /// <summary>
+        /// 更新填充位置，刷新填补画面
+        /// </summary>
+        public void RefreshFillGridBrush()
+        {
+            int xGridCount = XGridCount;
+            int yGridCount = YGridCount;
+            int xGridFillCount = XGridFillCount;
+            int yGridFillCount = YGridFillCount;
+
+            if (ShapeMarker is RectangleShape)
+            {
+                double width = ShapeMarker!.Width;
+                double height = ShapeMarker!.Height;
+
+                Brush gridLineColor = GridLineColor;//线颜色
+                Brush gridFillColor = GridFillColor;//填充颜色
+                double gridFillThickness = GridFillThickness;//线宽
+                int solidDashes = SolidDashes;//实虚线间断
+                int virtualDashes = VirtualDashes;
+
+                VisualBrush gridBrush = new();
+                double gridSpaceX = width / xGridCount;
+                double gridSpaceY = height / yGridCount;
+
+                if (gridSpaceX > 0 && gridSpaceY > 0)
+                {
+                    DrawingVisual gridVisual = new();
+                    using (DrawingContext dc = gridVisual.RenderOpen())
+                    {
+                        Pen gridPen = new Pen(gridLineColor, gridFillThickness) { DashStyle = new DashStyle(new double[] { solidDashes, virtualDashes }, 0) };
+
+                        for (int i = 0; i <= xGridCount; i++)
+                        {
+                            for (int j = 0; j <= yGridCount; j++)
+                            {
+                                double cellX = i * gridSpaceX;
+                                double cellY = j * gridSpaceY;
+
+                                // 绘制填充矩形
+                                if (j < yGridFillCount - 1 || (j == yGridFillCount - 1 && i < xGridFillCount))
+                                    dc.DrawRectangle(gridFillColor, null, new Rect(cellX, cellY, gridSpaceX, gridSpaceY));
+
+                                // 绘制垂直线，首尾不绘制
+                                if (i > 0 && cellX != width)
+                                    dc.DrawLine(gridPen, new Point(cellX, 0), new Point(cellX, height));
+
+                                // 绘制水平线，首尾不绘制
+                                if (j > 0 && cellY != height)
+                                    dc.DrawLine(gridPen, new Point(0, cellY), new Point(width, cellY));
+                            }
+                        }
+                    }
+                    gridBrush = new VisualBrush(gridVisual)
+                    {
+                        Stretch = Stretch.None,
+                        AlignmentX = AlignmentX.Left,
+                        AlignmentY = AlignmentY.Top,
+                        TileMode = TileMode.None
+                    };
+                }
+
+                ShapeMarker.Fill = gridBrush;
+            }
+        }
+
+        #endregion
+
+        #region MarkMenuCommand
+
+        //todo，完善右键菜单选项
+
+        public const string Delete = "Delete";
+
+        public const string ZoomScale = "ZoomScale";
+
+        public static readonly RoutedUICommand MarkMenuCommand = new();
+
+        public static readonly DependencyProperty MarkerMenuProperty =
+            DependencyProperty.Register(nameof(MarkerMenu), typeof(ContextMenu), typeof(ImageEx), new PropertyMetadata(default(ContextMenu)));
+
+        public ContextMenu MarkerMenu
+        {
+            get => (ContextMenu) GetValue(MarkerMenuProperty);
+            set => SetValue(MarkerMenuProperty, value);
+        }
+
+        #endregion
+
+        #region MarkerShapeCommand
+
+        public static readonly RoutedUICommand MarkerShapeCommand = new();
+
+        public const string PointShape = "PointShape";
+
+        public const string RectangleShape = "RectangleShape";
+
+        public const string LineShape = "LineShape";
+
+        public const string PolygonShape = "PolygonShape";
+
+        private ShapeBase? ShapePreviewer;
+
+        private ShapeBase? ShapeMarker;
+
+        private bool isRecDrawing = false;
+
+        private bool isLineDrawing = false;
+
+        private bool isPointDrawing = false;
+
+        private bool isPolygonDrawing = false;
+
+        private bool isPolygonDrawingReset = false;
+
+        private void OnCanvasLoad()
+        {
+            InkCanvas!.PreviewMouseDown += InkCanvas_PreviewMouseDown;
+            InkCanvas.PreviewMouseUp += InkCanvas_PreviewMouseUp;
+            InkCanvas.PreviewMouseMove += InkCanvas_PreviewMouseMove;
+        }
+
+        private void OnCanvasUnload()
+        {
+            InkCanvas!.PreviewMouseDown -= InkCanvas_PreviewMouseDown;
+            InkCanvas.PreviewMouseUp -= InkCanvas_PreviewMouseUp;
+            InkCanvas.PreviewMouseMove -= InkCanvas_PreviewMouseMove;
+        }
+
+        private void InkCanvas_PreviewMouseUp(object sender, MouseButtonEventArgs e)
+        {
+            if (ShapePreviewer == null || ShapeMarker == null) return;
+
+            if (ShapeMarker is RectangleShape)
+            {
+                ShapePreviewer!.Visibility = Visibility.Collapsed;
+                InkCanvas!.Cursor = Cursors.Arrow;
+
+                if (!ValidLocation(e)) return;
+                var min = Math.Min(ShapePreviewer!.Height, ShapePreviewer!.Width);
+                var threshold = Math.Min(ImageSource!.Height, ImageSource!.Width) * 0.02;
+                if (threshold > min) return;
+
+                ShapeMarker.Draw(InkCanvas);
+                ShapeMarker!.PointStart = ShapePreviewer!.PointStart;
+                ShapeMarker!.PointEnd = ShapePreviewer!.PointEnd;
+                ShapeMarker!.Visibility = Visibility.Visible;
+                ShapeMarker.Refresh();
+
+                ShapePreviewer.Clear(InkCanvas);
+                isRecDrawing = false;
+
+                //if (ValidRange(e))
+                //{
+                //    var contextMenu = Template.FindName("ImageContextMenu", this) as ContextMenu;
+                //    if (contextMenu != null && e.ChangedButton == MouseButton.Right)
+                //    {
+                //        contextMenu.IsOpen = true;
+                //    }
+                //}
+            }
+            else if (ShapeMarker is LineShape)
+            {
+                ShapePreviewer!.Visibility = Visibility.Collapsed;
+                InkCanvas!.Cursor = Cursors.Arrow;
+
+                if (!ValidLocation(e)) return;
+                var min = Math.Min(ShapePreviewer!.Height, ShapePreviewer!.Width);
+                var threshold = Math.Min(ImageSource!.Height, ImageSource!.Width) * 0.02;
+                if (threshold > min) return;
+
+                ShapeMarker!.PointStart = ShapePreviewer!.PointStart;
+                ShapeMarker!.PointEnd = ShapePreviewer!.PointEnd;
+                ShapeMarker!.Visibility = Visibility.Visible;
+                ShapeMarker.Draw(InkCanvas);
+
+                ShapePreviewer.Clear(InkCanvas);//去除预览绘制
+                isLineDrawing = false;
+            }
+            else if (ShapeMarker is PointShape)
+            {
+                ShapePreviewer!.Visibility = Visibility.Collapsed;
+
+                if (!ValidLocation(e)) return;
+
+                ShapeMarker!.PointStart = ShapePreviewer!.PointStart;
+                ShapeMarker!.Visibility = Visibility.Visible;
+                ShapeMarker!.Refresh();
+                ShapeMarker.Draw(InkCanvas!);
+
+                ShapePreviewer.Clear(InkCanvas!);
+                isPointDrawing = false;
+            }
+            else if (ShapeMarker is PolygonShape)
+            {
+
+            }
+
+            RefreshShapeData();//刷新绘制数据
+
+        }
+
+        private void InkCanvas_PreviewMouseMove(object sender, MouseEventArgs e)
+        {
+            if (ShapePreviewer == null || ShapeMarker == null) return;
+
+            if (ShapeMarker is RectangleShape)
+            {
+                if (isRecDrawing)
+                {
+                    InkCanvas!.Cursor = Cursors.Cross;
+                    ShapePreviewer!.Visibility = Visibility.Visible;
+                    ShapePreviewer!.PointEnd = e.GetPosition(InkCanvas);
+                    ShapePreviewer.Refresh();
+                }
+            }
+            else if (ShapeMarker is LineShape)
+            {
+                if (isLineDrawing)
+                {
+                    InkCanvas!.Cursor = Cursors.Cross;
+                    ShapePreviewer.Draw(InkCanvas, true);
+                    ShapePreviewer!.PointEnd = e.GetPosition(InkCanvas);
+                    ShapePreviewer!.Visibility = Visibility.Visible;
+                    ShapePreviewer?.Refresh();
+                }
+            }
+            else if (ShapeMarker is PointShape)
+            {
+                if (isPointDrawing)
+                {
+                    ShapePreviewer.Draw(InkCanvas!, true);
+                    ShapePreviewer!.PointStart = e.GetPosition(InkCanvas);
+                }
+            }
+            else if (ShapeMarker is PolygonShape)
+            {
+                var polygonShape = ShapePreviewer as PolygonShape;
+                if (polygonShape?.Points?.Count == 0) return;
+
+                var point = e.GetPosition(InkCanvas);
+                if (isPolygonDrawing)
+                {
+                    if (ValidPoint(point, polygonShape!.Points)) polygonShape!.Points.Add(point);
+                    isPolygonDrawing = false;
+                }
+                else
+                {
+                    polygonShape!.Points[polygonShape!.Points.Count - 1] = point;
+                }
+                ShapePreviewer.Draw(InkCanvas!);
+            }
+        }
+
+        private void InkCanvas_PreviewMouseDown(object sender, MouseButtonEventArgs e)
+        {
+            if (ShapePreviewer == null || ShapeMarker == null) return;
+
+            if (ShapeMarker is RectangleShape)
+            {
+                if (e.RightButton != MouseButtonState.Pressed) return;
+
+                ShapeMarker.Fill = RectFillDefaultBrush;
+                ShapeMarker!.Visibility = Visibility.Collapsed;
+                ShapePreviewer.Draw(InkCanvas!);
+                ShapePreviewer.PointStart = e.GetPosition(InkCanvas);
+                isRecDrawing = true;
+            }
+            else if (ShapeMarker is LineShape)
+            {
+                if (e.RightButton != MouseButtonState.Pressed) return;
+                ShapePreviewer.PointStart = e.GetPosition(InkCanvas);
+                isLineDrawing = true;
+            }
+            else if (ShapeMarker is PointShape)
+            {
+                if (e.RightButton != MouseButtonState.Pressed) return;
+
+                isPointDrawing = true;
+                ShapePreviewer.Draw(InkCanvas!, true);
+                ShapePreviewer!.PointStart = e.GetPosition(InkCanvas);
+                ShapePreviewer!.Visibility = Visibility.Visible;
+                ShapePreviewer!.Refresh();
+            }
+            else if (ShapeMarker is PolygonShape)
+            {
+                //todo，后续添加多边形网格&网格坐标
+
+                ////网格-每次都初始化fill的设置
+                //ShapeMarker.Fill = PolygonFillDefaultBrush;
+
+                if (e.RightButton != MouseButtonState.Pressed) return;
+
+                var polygonShapePre = ShapePreviewer as PolygonShape;
+                if (isPolygonDrawingReset)
+                {
+                    polygonShapePre!.Points.Clear();
+                    ShapeMarker!.Visibility = Visibility.Collapsed;
+                    ShapePreviewer!.Visibility = Visibility.Visible;
+                }
+                polygonShapePre!.Points.Add(e.GetPosition(InkCanvas));
+                ShapePreviewer.Draw(InkCanvas!);
+                isPolygonDrawing = true;
+                isPolygonDrawingReset = false;
+
+                if (e.ClickCount == 2)
+                {
+                    ShapePreviewer!.Visibility = Visibility.Collapsed;
+                    ShapeMarker!.Visibility = Visibility.Visible;
+                    var polygonShapeMarker = ShapeMarker as PolygonShape;
+
+                    var sortsPoints = DisposePointsToFormPolygon(polygonShapePre!.Points);
+
+
+                    if (sortsPoints.Count < 3)
+                    {
+                        polygonShapePre!.Points.Clear();
+                        ShapeMarker!.Visibility = Visibility.Collapsed;
+                        isPolygonDrawingReset = false;
+                    }
+                    polygonShapeMarker!.Points = sortsPoints;
+                    ShapeMarker?.Draw(InkCanvas!);
+                    isPolygonDrawingReset = true;
+                }
+            }
+        }
+
+        /// <summary>
+        /// 去除重复点
+        /// 排除相距过近的点
+        /// 排序多边形点
+        /// </summary>
+        /// <param name="points"></param>
+        /// <returns></returns>
+        /// <exception cref="ArgumentException"></exception>
+        private static List<Point> DisposePointsToFormPolygon(List<Point> points)
+        {
+            if (points == null || points.Count < 3)
+            {
+                throw new ArgumentException("多边形必须至少有三个点。");
+            }
+
+            // 去除重复点
+            var distinctPoints = points.DistinctBy(p => new { p.X, p.Y }).ToList();
+
+            //排除距离相差小于5个像素的点
+            var filteredPoints = new List<Point>();
+            filteredPoints.Add(distinctPoints[0]);
+            for (var i = 1; i < distinctPoints.Count; i++)
+            {
+                var lastPoint = filteredPoints.Last();
+                var currentPoint = distinctPoints[i];
+
+                // 判断点之间的距离，使用点与点的坐标差值来避免重复计算
+                double dx = currentPoint.X - lastPoint.X;
+                double dy = currentPoint.Y - lastPoint.Y;
+                double distance = Math.Sqrt(dx * dx + dy * dy);
+
+                if (distance >= 5)
+                    filteredPoints.Add(currentPoint);
+            }
+
+            // 找到最低且最左的点作为参考点
+            var referencePoint = filteredPoints.OrderBy(p => p.Y).ThenBy(p => p.X).First();
+
+            // 按照与参考点的极角排序
+            var sortedPoints = filteredPoints.OrderBy(p => Math.Atan2(p.Y - referencePoint.Y, p.X - referencePoint.X)).ToList();
+
+            return sortedPoints;
+        }
+
+        private bool ValidPoint(Point point, List<Point> points)
+        {
+            double threshold = 0.01;
+            if (points.Count <= 1) return true;
+            foreach (var existingPoint in points)
+            {
+                var value = Distance(point, existingPoint);
+                if (value < threshold) return false;
+            }
+            return true;
+        }
+
+        private double Distance(Point p1, Point p2)
+        {
+            return Math.Sqrt(Math.Pow(p1.X - p2.X, 2) + Math.Pow(p1.Y - p2.Y, 2));
+        }
+
+        private bool ValidRange(MouseEventArgs e)
+        {
+            if (ShapeMarker!.ActualHeight == 0 || ShapeMarker.ActualWidth == 0) return false;
+
+            var pos = e.GetPosition(InkCanvas);
+            var start = ShapeMarker!.PointStart;
+            var end = ShapeMarker.PointEnd;
+            bool isXRight = pos.X >= start.X && pos.X <= end.X || pos.X <= start.X && pos.X >= end.X;
+            bool isYRight = pos.Y >= start.Y && pos.Y <= end.Y || pos.Y <= start.Y && pos.Y >= end.Y;
+
+            return isXRight && isYRight;
+        }
+
+        private void CleanDraw()
+        {
+            for (int i = InkCanvas!.Children.Count - 1; i >= 0; i--)
+            {
+                if (InkCanvas.Children[i] is RectangleShape ||
+                    InkCanvas.Children[i] is LineShape ||
+                    InkCanvas.Children[i] is PointShape ||
+                    InkCanvas.Children[i] is PolygonShape)
+                {
+                    InkCanvas.Children.RemoveAt(i);               
+                }
+            }
+        }
+
+        private void RefreshShapeData()
+        {
+            List<string> shapesInfo = new List<string>();
+            foreach (var child in InkCanvas!.Children)
+            {
+                if (ShapeMarker is LineShape && child is LineShape line)
+                {
+                    shapesInfo.Add($"Line: Start({line.PointStart.X.ToString("0.00")}, {line.PointStart.Y.ToString("0.00")}), End({line.PointEnd.X.ToString("0.00")}, {line.PointEnd.Y.ToString("0.00")})");
+                }
+                else if (ShapeMarker is RectangleShape && child is RectangleShape rectangle)
+                {
+                    double left = InkCanvas.GetLeft(rectangle);
+                    double top = InkCanvas.GetTop(rectangle);
+                    shapesInfo.Add($"Rectangle: Position({left.ToString("0.00")}, {top.ToString("0.00")}), Size({rectangle.Width.ToString("0.00")}, {rectangle.Height.ToString("0.00")})");
+                }
+                else if (ShapeMarker is PointShape && child is PointShape ellipse)
+                {
+                    shapesInfo.Add($"PointShape: Position({ellipse.PointStart.X.ToString("0.00")}, " +
+                        $"{ellipse.PointStart.Y.ToString("0.00")}), Size({ellipse.RadiusX.ToString("0.00")}, {ellipse.RadiusY.ToString("0.00")})");
+                }
+                else if (ShapeMarker is PolygonShape && child is PolygonShape polygon && isPolygonDrawingReset)
+                {
+                    var polygonPoints = DisposePointsToFormPolygon(polygon!.Points);
+                    string points = string.Join(",# ", polygonPoints.Select(p => $"{p.X:F2}, {p.Y:F2}"));
+                    shapesInfo.Add($"Polygon: Points({points})");
+                }
+            }
+            Debug.WriteLine(string.Join("\r\n", shapesInfo), "Shapes Info");//信息输出demo
+        }
+
+        private bool ValidLocation(MouseEventArgs e)
+        {
+            var pos = e.GetPosition(InkCanvas);
+            var width = InkCanvas!.ActualWidth;
+            var height = InkCanvas!.ActualHeight;
+            return !(pos.X < 0 || pos.Y < 0 || pos.X > width || pos.Y > height);
+        }
+
+        private static string GetCurrentShapeType(bool isPreviewer, string command)
+        {
+            string name = string.Empty;
+
+            switch (command)
+            {
+                case "PointMarker":
+                    name = isPreviewer ? "PART_SHAPE_POINT_PREVIEWER" : "PART_SHAPE_POINT_MARKER";
+                    break;
+                case "LineMarker":
+                    name = isPreviewer ? "PART_SHAPE_LINE_PREVIEWER" : "PART_SHAPE_LINE_MARKER";
+                    break;
+                case "RectMarker":
+                    name = isPreviewer ? "PART_SHAPE_RECT_PREVIEWER" : "PART_SHAPE_RECT_MARKER";
+                    break;
+                case "PolygonMarker":
+                    name = isPreviewer ? "PART_SHAPE_POLYGON_PREVIEWER" : "PART_SHAPE_POLYGON_MARKER";
+                    break;
+                default:
+                    throw new NotImplementedException("Not Valid Command!");
+            }
+            return name;
+        }
+
+        #endregion
 
         #region ImageProcessCommand
 
-        //todo，尝试将此功能使用外界命令调用
         public static readonly RoutedUICommand ImageProcessCommand = new();
 
         public const string SaveDump = "SaveDump";
 
-        public const string MsgBox = "MessageBox";
+        public const string MsgBox = "MsgBox";
 
         private BitmapImage InkCanvastoBitmapImage(InkCanvas inkCanvas)
         {
@@ -134,134 +824,7 @@ namespace ImageExLib
 
         #endregion
 
-        public override void OnApplyTemplate()
-        {
-            base.OnApplyTemplate();
-
-            MainPanel = Template.FindName(NamePartMainPanel, this) as Panel;
-            Scroll = Template.FindName(NamePartScrollView, this) as ScrollViewer;
-            Viewbox = Template.FindName(NamePartViewBox, this) as Viewbox;
-            InkCanvas = Template.FindName(NamePartInkCanvas, this) as InkCanvas;
-
-            OnLoad();
-        }
-
-        #region ImageSourceProperty
-
-        public static readonly DependencyProperty ImageSourceProperty =
-            DependencyProperty.Register("ImageSource", typeof(ImageSource), typeof(ImageEx), new PropertyMetadata(null, (o, p) =>
-            {
-                //ImageSource变化时回调，平铺对象
-                //o 是更改了属性的对象，p 是一个包含旧值和新值的 DependencyPropertyChangedEventArgs 对象
-
-                if (o is not ImageEx ex) return;
-                ex.UpdateImageInfo();
-
-                if (p.OldValue is not BitmapSource s1)
-                {
-                    ex.TileImage();
-                    return;
-                }
-
-                if (p.NewValue is not BitmapSource s2)
-                    return;
-
-                //差异超过0.001，则触发
-                if (Math.Abs(s1.Width - s2.Width) > 0.001
-                    || Math.Abs(s1.Height - s2.Height) > 0.001) ex.TileImage();
-
-            }));
-
-        public ImageSource ImageSource
-        {
-            get => (ImageSource) GetValue(ImageSourceProperty);
-            set => SetValue(ImageSourceProperty, value);
-        }
-        #endregion
-
         #region 处理缩放&拖拽
-
-        private Point _cursor = new(-1, -1);
-
-        private void OnZoomChanged(object sender, MouseWheelEventArgs e)
-        {
-            var oldScale = ImagePanelScale;
-            if (oldScale <= 0) return;
-
-            var scale = Math.Log10(ImagePanelScale / DefaultImagePanelScale);
-
-            scale = (scale <= 0 ? 0.1 : Math.Pow(10, Math.Floor(scale))) * DefaultImagePanelScale;
-
-            //e.Delta 小于或等于 0，表示滚轮向下滚动，进行缩小操作
-            if (e.Delta <= 0)
-            {
-                ImagePanelScale -= DefaultImagePanelScale * scale;
-
-                // 最小为缩小10倍
-                if (ImagePanelScale <= DefaultImagePanelScale * 0.1)
-                    ImagePanelScale = DefaultImagePanelScale * 0.1;
-            }
-            else
-            {
-                ImagePanelScale += DefaultImagePanelScale * scale;
-            }
-            if (ImagePanelScale <= DefaultImagePanelScale) return;
-
-            var transform = ImagePanelScale / oldScale;
-            var pos = e.GetPosition(Viewbox);
-            var target = new Point(pos.X * transform, pos.Y * transform);
-            var offset = target - pos;
-
-            Scroll!.ScrollToHorizontalOffset(Scroll.HorizontalOffset + offset.X);
-            Scroll!.ScrollToVerticalOffset(Scroll.VerticalOffset + offset.Y);
-        }
-
-        private void OnPreviewMouseDown(object sender, MouseButtonEventArgs e)
-        {
-            //PreviewMouseDown-常用于需要拦截事件的场景，比如实现自定义行为、阻止某些默认行为（例如在某些条件下阻止进一步的事件传递）等
-            //MouseDown-通常用于处理实际的鼠标点击事件，例如启动某个操作或更新 UI 状态。这个事件通常在确认用户已经点击了目标元素后处理
-
-            _cursor = e.GetPosition(this);
-        }
-
-        private void OnPreviewMouseUp(object sender, MouseButtonEventArgs e)
-        {
-            _cursor = new(-1, -1);
-        }
-
-        private void OnMouseMove(object sender, MouseEventArgs e)
-        {
-            if (e.LeftButton != MouseButtonState.Pressed) return;
-            if (_cursor.X < 0 || _cursor.Y < 0) return;
-
-            var pos = e.GetPosition(this);
-            var offset = pos - _cursor;
-            _cursor = pos;
-
-            Scroll!.ScrollToHorizontalOffset(Scroll.HorizontalOffset - offset.X);
-            Scroll.ScrollToVerticalOffset(Scroll.VerticalOffset - offset.Y);
-        }
-
-        private void OnLoad()
-        {
-            MainPanel!.MouseWheel += OnZoomChanged;
-            Scroll!.MouseMove += OnMouseMove;
-            Scroll.PreviewMouseDown += OnPreviewMouseDown; ;
-            Scroll.PreviewMouseUp += OnPreviewMouseUp;
-        }
-
-        private void OnUnload()
-        {
-            MainPanel!.MouseWheel -= OnZoomChanged;
-            Scroll!.MouseMove -= OnMouseMove;
-            Scroll.PreviewMouseDown -= OnPreviewMouseDown; ;
-            Scroll.PreviewMouseUp -= OnPreviewMouseUp;
-        }
-
-        ~ImageEx() => OnUnload();
-
-
-        #endregion
 
         #region Name_Part
 
@@ -347,5 +910,124 @@ namespace ImageExLib
         }
 
         #endregion
+
+        #region ImageSourceProperty
+
+        public static readonly DependencyProperty ImageSourceProperty =
+            DependencyProperty.Register("ImageSource", typeof(ImageSource), typeof(ImageEx), new PropertyMetadata(null, (o, p) =>
+            {
+                //ImageSource变化时回调，平铺对象
+                //o 是更改了属性的对象，p 是一个包含旧值和新值的 DependencyPropertyChangedEventArgs 对象
+
+                if (o is not ImageEx ex) return;
+                ex.UpdateImageInfo();
+
+                if (p.OldValue is not BitmapSource s1)
+                {
+                    ex.TileImage();
+                    return;
+                }
+
+                if (p.NewValue is not BitmapSource s2)
+                    return;
+
+                //差异超过0.001，则触发
+                if (Math.Abs(s1.Width - s2.Width) > 0.001
+                    || Math.Abs(s1.Height - s2.Height) > 0.001) ex.TileImage();
+
+            }));
+
+        public ImageSource ImageSource
+        {
+            get => (ImageSource) GetValue(ImageSourceProperty);
+            set => SetValue(ImageSourceProperty, value);
+        }
+        #endregion
+
+        private Point _cursor = new(-1, -1);
+
+        private void OnZoomChanged(object sender, MouseWheelEventArgs e)
+        {
+            var oldScale = ImagePanelScale;
+            if (oldScale <= 0) return;
+
+            var scale = Math.Log10(ImagePanelScale / DefaultImagePanelScale);
+
+            scale = (scale <= 0 ? 0.1 : Math.Pow(10, Math.Floor(scale))) * DefaultImagePanelScale;
+
+            //e.Delta 小于或等于 0，表示滚轮向下滚动，进行缩小操作
+            if (e.Delta <= 0)
+            {
+                ImagePanelScale -= DefaultImagePanelScale * scale;
+
+                // 最小为缩小10倍
+                if (ImagePanelScale <= DefaultImagePanelScale * 0.1)
+                    ImagePanelScale = DefaultImagePanelScale * 0.1;
+            }
+            else
+            {
+                ImagePanelScale += DefaultImagePanelScale * scale;
+            }
+            if (ImagePanelScale <= DefaultImagePanelScale) return;
+
+            var transform = ImagePanelScale / oldScale;
+            var pos = e.GetPosition(Viewbox);
+            var target = new Point(pos.X * transform, pos.Y * transform);
+            var offset = target - pos;
+
+            Scroll!.ScrollToHorizontalOffset(Scroll.HorizontalOffset + offset.X);
+            Scroll!.ScrollToVerticalOffset(Scroll.VerticalOffset + offset.Y);
+        }
+
+        private void OnPreviewMouseDown(object sender, MouseButtonEventArgs e)
+        {
+            //PreviewMouseDown-常用于需要拦截事件的场景，比如实现自定义行为、阻止某些默认行为（例如在某些条件下阻止进一步的事件传递）等
+            //MouseDown-通常用于处理实际的鼠标点击事件，例如启动某个操作或更新 UI 状态。这个事件通常在确认用户已经点击了目标元素后处理
+
+            _cursor = e.GetPosition(this);
+        }
+
+        private void OnPreviewMouseUp(object sender, MouseButtonEventArgs e)
+        {
+            _cursor = new(-1, -1);
+        }
+
+        private void OnMouseMove(object sender, MouseEventArgs e)
+        {
+            if (e.LeftButton != MouseButtonState.Pressed) return;
+            if (_cursor.X < 0 || _cursor.Y < 0) return;
+
+            var pos = e.GetPosition(this);
+            var offset = pos - _cursor;
+            _cursor = pos;
+
+            Scroll!.ScrollToHorizontalOffset(Scroll.HorizontalOffset - offset.X);
+            Scroll.ScrollToVerticalOffset(Scroll.VerticalOffset - offset.Y);
+        }
+
+        private void OnViewerLoad()
+        {
+            MainPanel!.MouseWheel += OnZoomChanged;
+            Scroll!.MouseMove += OnMouseMove;
+            Scroll.PreviewMouseDown += OnPreviewMouseDown; ;
+            Scroll.PreviewMouseUp += OnPreviewMouseUp;
+        }
+
+        private void OnUnload()
+        {
+            MainPanel!.MouseWheel -= OnZoomChanged;
+            Scroll!.MouseMove -= OnMouseMove;
+            Scroll.PreviewMouseDown -= OnPreviewMouseDown; ;
+            Scroll.PreviewMouseUp -= OnPreviewMouseUp;
+        }
+
+        ~ImageEx()
+        {
+            OnUnload();
+            OnCanvasUnload();
+        }
+
+        #endregion
+
     }
 }

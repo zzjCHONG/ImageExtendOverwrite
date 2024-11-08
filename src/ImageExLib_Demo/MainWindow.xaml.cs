@@ -1,6 +1,8 @@
-﻿using System.Windows;
+﻿using System.Diagnostics;
+using System.Windows;
 using System.Windows.Media;
 using System.Windows.Threading;
+using ImageExLib;
 using OpenCvSharp;
 using OpenCvSharp.WpfExtensions;
 using Color = System.Drawing.Color;
@@ -29,15 +31,21 @@ namespace ImageExLib_Demo
                 {
                     Application.Current.Dispatcher.BeginInvoke(() =>
                     {
-                        var color = _colors[(_count++) % _colors.Count];
-                        var img = new Mat(new OpenCvSharp.Size(1660, 1242), MatType.CV_8UC4,
-                        new Scalar(color.B, color.G, color.R, color.A));
-                        var source = img.ToWriteableBitmap(0, 0, PixelFormats.Bgr32, null);
-
-                        //var img = Cv2.ImRead(@"C:\Users\Administrator\Desktop\控件测试\2_24bit.jpg");
-                        //var source = img.ToBitmapSource();
-
-                        ImageEx.ImageSource = source;
+                        bool isCustom=false;
+                        if (isCustom)
+                        {
+                            var color = _colors[(_count++) % _colors.Count];
+                            var img = new Mat(new OpenCvSharp.Size(1660, 1242), MatType.CV_8UC4,
+                            new Scalar(color.B, color.G, color.R, color.A));
+                            var source = img.ToWriteableBitmap(0, 0, PixelFormats.Bgr32, null);
+                            ImageEx.ImageSource = source;
+                        }
+                        else
+                        {
+                            var img = Cv2.ImRead(@"C:\Users\Administrator\Desktop\控件测试\2_24bit.jpg");
+                            var source = img.ToBitmapSource();
+                            ImageEx.ImageSource = source;
+                        }                 
                     });
                 };
                 _timer.Start();
@@ -45,12 +53,25 @@ namespace ImageExLib_Demo
             }
             else
             {
-                var img = Cv2.ImRead(@"C:\Users\Administrator\Desktop\控件测试\2_24bit.jpg");
-                var source = img.ToBitmapSource();
-                ImageEx.ImageSource = source;
+                bool isCustom = true;
+                if (isCustom)
+                {
+                    var color = _colors[1];
+                    var img = new Mat(new OpenCvSharp.Size(1660, 1242), MatType.CV_8UC4,
+                    new Scalar(color.B, color.G, color.R, color.A));
+                    var source = img.ToWriteableBitmap(0, 0, PixelFormats.Bgr32, null);
+                    ImageEx.ImageSource = source;
+                }
+                else
+                {
+                    var img = Cv2.ImRead(@"C:\Users\Administrator\Desktop\控件测试\2_24bit.jpg");
+                    var source = img.ToBitmapSource();
+                    ImageEx.ImageSource = source;
+                }
             }          
         }
 
+        #region
         private int _count = 0;
         private DispatcherTimer? _timer;
         private List<Color> _colors = new()
@@ -198,5 +219,27 @@ namespace ImageExLib_Demo
         Color.YellowGreen,
         Color.RebeccaPurple,
     };
+        #endregion
+
+        private void anotherway_Click(object sender, RoutedEventArgs e)
+        {
+            ImageEx.XGridCount = 10;
+            ImageEx.YGridCount = 15;
+            ImageEx.XGridFillCount = 6;
+            ImageEx.YGridFillCount = 5;
+            ImageEx.RefreshFillGridBrush();
+        }
+
+        private void ImageEx_MouseDoubleClick(object sender, System.Windows.Input.MouseButtonEventArgs e)
+        {
+            if (sender is not ImageEx viewer) return;
+
+            var pos = viewer.ImageCurrentPosition;
+            Debug.WriteLine($"ImageCurrentPosition {pos.x}-{pos.y}");
+
+            var gridXY = viewer.GridFillCurrentPos;
+            Debug.WriteLine($"GridCurrentPos  {gridXY.x}-{gridXY.y}");
+
+        }
     }
 }

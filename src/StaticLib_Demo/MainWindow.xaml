@@ -1,0 +1,28 @@
+﻿<Window
+    x:Class="StaticLib_Demo.MainWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:local="clr-namespace:StaticLib_Demo"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:staLib="clr-namespace:StaticLib;assembly=StaticLib"
+    Title="MainWindow"
+    Width="800"
+    Height="450"
+    mc:Ignorable="d">
+    <StackPanel>
+
+        <!--  静态命令能够正常调用的关键，是成功设置CommandTarget，其中ElementName绑定的自定义控件要先做命名  -->
+
+        <staLib:CustomControl1 x:Name="myControl10" />
+
+        <Button
+            Width="200"
+            Height="100"
+            Command="{x:Static staLib:CustomControl1.MyCommand}"
+            CommandParameter="MessageBox"
+            CommandTarget="{Binding ElementName=myControl10}"
+            Content="asd" />
+
+    </StackPanel>
+</Window>

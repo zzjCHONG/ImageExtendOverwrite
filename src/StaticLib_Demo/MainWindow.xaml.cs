@@ -9,7 +9,7 @@ using System.Windows.Media.Imaging;
 using System.Windows.Navigation;
 using System.Windows.Shapes;
 
-namespace CommandLib_Demo
+namespace StaticLib_Demo
 {
     /// <summary>
     /// Interaction logic for MainWindow.xaml
@@ -19,19 +19,6 @@ namespace CommandLib_Demo
         public MainWindow()
         {
             InitializeComponent();
-
-            myCustomControl.MyCustom += MyCustomControl_MyCustom;
-        }
-
-        private void MyCustomControl_MyCustom(object sender, RoutedEventArgs e)
-        {
-            MessageBox.Show("Custom event triggered!");
-        }
-
-        private void Button_Click(object sender, RoutedEventArgs e)
-        {
-            // 触发自定义事件
-            myCustomControl.RaiseMyCustomEvent();
         }
     }
 }

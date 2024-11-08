@@ -1,12 +1,13 @@
 ﻿<ResourceDictionary
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-    xmlns:local="clr-namespace:ImageExLib">
+    xmlns:ImageEx="clr-namespace:ImageExLib"
+    xmlns:ShapeEx="clr-namespace:ImageExLib.ShapeEx">
 
-    <Style TargetType="{x:Type local:ImageEx}">
+    <Style TargetType="{x:Type ImageEx:ImageEx}">
         <Setter Property="Template">
             <Setter.Value>
-                <ControlTemplate TargetType="{x:Type local:ImageEx}">
+                <ControlTemplate TargetType="{x:Type ImageEx:ImageEx}">
 
                     <!--  滚动条  -->
                     <ScrollViewer
@@ -16,7 +17,7 @@
                         VerticalScrollBarVisibility="Hidden">
 
                         <!--  主面板  -->
-                        <local:SimplePanel x:Name="PART_MAIN_PANEL" Background="{TemplateBinding Background}">
+                        <ImageEx:SimplePanel x:Name="PART_MAIN_PANEL" Background="{TemplateBinding Background}">
 
                             <!--  Viewbox用于调整子元素的大小，控件居中对齐保持比例  -->
                             <Viewbox
@@ -26,7 +27,7 @@
                                 Stretch="Uniform">
 
                                 <!--  ClipToBounds="True" 超出panel的不渲染  -->
-                                <local:SimplePanel ClipToBounds="True">
+                                <ImageEx:SimplePanel ClipToBounds="True">
 
                                     <!--  InkCanvas用于绘制和处理墨迹输入  shapebase  -->
                                     <InkCanvas
@@ -46,25 +47,86 @@
                                                 RenderTransformOrigin="0.5,0.5"
                                                 Source="{TemplateBinding ImageSource}">
 
-                                                <!--  图像上的右键功能菜单  -->
-                                                <Image.ContextMenu>
-                                                    <ContextMenu Visibility="Visible">
+                                                <!--  图像上的右键功能菜单 在实际界面实现  -->
+                                                <!--<Image.ContextMenu>
+                                                    <ContextMenu x:Name="ImageContextMenu" Visibility="Visible">
                                                         <MenuItem
-                                                            Command="{x:Static local:ImageEx.ImageProcessCommand}"
+                                                            Command="{x:Static ImageEx:ImageEx.ImageProcessCommand}"
                                                             CommandParameter="SaveDump"
                                                             Header="SaveDump" />
                                                         <MenuItem
-                                                            Command="{x:Static local:ImageEx.ImageProcessCommand}"
-                                                            CommandParameter="MessageBox"
+                                                            Command="{x:Static ImageEx:ImageEx.ImageProcessCommand}"
+                                                            CommandParameter="MsgBox"
                                                             Header="MsgBox" />
+                                                        <MenuItem Command="{Binding AcquireRamanDataCommand}" Header="Acquire" />
+                                                        <MenuItem
+                                                            Command="ImageEx:ImageEx.MarkMenuCommand"
+                                                            CommandParameter="{x:Static ImageEx:ImageEx.ZoomScale}"
+                                                            Header="Scale" />
+                                                        <MenuItem
+                                                            Command="ImageEx:ImageEx.MarkMenuCommand"
+                                                            CommandParameter="{x:Static ImageEx:ImageEx.Delete}"
+                                                            Header="Delete" />
                                                     </ContextMenu>
-                                                </Image.ContextMenu>
+                                                </Image.ContextMenu>-->
+
                                             </Image>
                                         </Grid>
+
+                                        <ShapeEx:RectangleShape
+                                            x:Name="PART_SHAPE_RECT_MARKER"
+                                            ContextMenu="{TemplateBinding MarkerMenu}"
+                                            Fill="Black"
+                                            Opacity="0.3"
+                                            Stroke="Red"
+                                            StrokeThickness="5" />
+
+                                        <ShapeEx:RectangleShape
+                                            x:Name="PART_SHAPE_RECT_PREVIEWER"
+                                            Fill="Red"
+                                            Opacity="0.5"
+                                            Stroke="Blue"
+                                            StrokeThickness="5" />
+
+                                        <ShapeEx:LineShape
+                                            x:Name="PART_SHAPE_LINE_PREVIEWER"
+                                            Stroke="Yellow"
+                                            StrokeThickness="5" />
+
+                                        <ShapeEx:LineShape
+                                            x:Name="PART_SHAPE_LINE_MARKER"
+                                            Stroke="Green"
+                                            StrokeThickness="5" />
+
+                                        <ShapeEx:PointShape
+                                            x:Name="PART_SHAPE_POINT_PREVIEWER"
+                                            Fill="Yellow"
+                                            Stroke="Black" />
+
+                                        <ShapeEx:PointShape
+                                            x:Name="PART_SHAPE_POINT_MARKER"
+                                            Fill="Green"
+                                            Stroke="Black" />
+
+                                        <ShapeEx:PolygonShape
+                                            x:Name="PART_SHAPE_POLYGON_PREVIEWER"
+                                            Fill="Red"
+                                            Opacity="0.5"
+                                            Stroke="Blue"
+                                            StrokeThickness="3" />
+
+                                        <ShapeEx:PolygonShape
+                                            x:Name="PART_SHAPE_POLYGON_MARKER"
+                                            ContextMenu="{TemplateBinding MarkerMenu}"
+                                            Fill="Black"
+                                            Opacity="0.5"
+                                            Stroke="Red"
+                                            StrokeThickness="3" />
+
                                     </InkCanvas>
-                                </local:SimplePanel>
+                                </ImageEx:SimplePanel>
                             </Viewbox>
-                        </local:SimplePanel>
+                        </ImageEx:SimplePanel>
                     </ScrollViewer>
                 </ControlTemplate>
             </Setter.Value>

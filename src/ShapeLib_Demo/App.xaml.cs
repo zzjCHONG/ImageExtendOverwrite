@@ -2,7 +2,7 @@
 using System.Data;
 using System.Windows;
 
-namespace CommandLib_Demo
+namespace ShapeLib_Demo
 {
     /// <summary>
     /// Interaction logic for App.xaml
