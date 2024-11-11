@@ -165,8 +165,8 @@ namespace ImageExLib
             OnViewerLoad();
             OnCanvasLoad();
 
-            RectFillDefaultBrush = (Template.FindName(GetCurrentShapeType(true, "RectMarker"), this) as ShapeBase)!.Fill;
-            PolygonFillDefaultBrush = (Template.FindName(GetCurrentShapeType(true, "PolygonMarker"), this) as ShapeBase)!.Fill;
+            RectFillDefaultBrush = (Template.FindName(GetCurrentShapeType(false, "RectMarker"), this) as ShapeBase)!.Fill;
+            PolygonFillDefaultBrush = (Template.FindName(GetCurrentShapeType(false, "PolygonMarker"), this) as ShapeBase)!.Fill;
         }
 
         public (double x, double y) ImageCurrentPosition
@@ -185,14 +185,27 @@ namespace ImageExLib
                 try
                 {
                     Point _constrastPoint = new();
+                    List<Point> points = new();
                     double width = 0;
                     double height = 0;
+                    bool isPointInPolygon = true;
 
                     if (ShapeMarker is RectangleShape)
                     {
                         width = ShapeMarker!.Width;
                         height = ShapeMarker!.Height;
                         _constrastPoint = ShapeMarker!.PointStart;
+                    }
+                    else if (ShapeMarker is PolygonShape polygonMarker)
+                    {
+                        points=polygonMarker.Points;
+                        double minX = points.Min(p => p.X);
+                        double maxX = points.Max(p => p.X);
+                        double minY = points.Min(p => p.Y);
+                        double maxY = points.Max(p => p.Y);
+                        _constrastPoint = new Point(minX, minY);
+                        width = maxX - minX;
+                        height = maxY - minY;
                     }
                     else
                     {
@@ -208,8 +221,11 @@ namespace ImageExLib
 
                     int y = (int) Math.Floor((currentPos.Y - _constrastPoint.Y) / _gridSpacingY) + 1;
                     int x = (int) Math.Floor((currentPos.X - _constrastPoint.X) / _gridSpacingX) + 1;
+   
+                    if (ShapeMarker is PolygonShape)
+                        isPointInPolygon = IsPointInPolygon(points, currentPos);
 
-                    if ((y > XGridCount || y <= 0) || (x > YGridCount || x <= 0))
+                    if ((y > XGridCount || y <= 0) || (x > YGridCount || x <= 0) || !isPointInPolygon)
                         return (-1, -1);
 
                     return (x, y);
@@ -219,7 +235,7 @@ namespace ImageExLib
                     return (-1, -1);
                 }
             }
-        }
+        }      
 
         #region GridFillCommand
 
@@ -316,70 +332,100 @@ namespace ImageExLib
 
         public const string GridFill = "GridFill";
 
-        /// <summary>
-        /// 更新填充位置，刷新填补画面
-        /// </summary>
         public void RefreshFillGridBrush()
         {
-            int xGridCount = XGridCount;
-            int yGridCount = YGridCount;
-            int xGridFillCount = XGridFillCount;
-            int yGridFillCount = YGridFillCount;
-
+            double width = 0;
+            double height = 0;
             if (ShapeMarker is RectangleShape)
             {
-                double width = ShapeMarker!.Width;
-                double height = ShapeMarker!.Height;
+                width = ShapeMarker!.Width;
+                height = ShapeMarker!.Height;
+            }
+            else if (ShapeMarker is PolygonShape polygonShapeMarker)
+            {
+                var points = polygonShapeMarker.Points;
+                width = points.Max(p => p.X) - points.Min(p => p.X);
+                height = points.Max(p => p.Y) - points.Min(p => p.Y);
+            }
 
-                Brush gridLineColor = GridLineColor;//线颜色
-                Brush gridFillColor = GridFillColor;//填充颜色
-                double gridFillThickness = GridFillThickness;//线宽
-                int solidDashes = SolidDashes;//实虚线间断
-                int virtualDashes = VirtualDashes;
+            int xGridCount = XGridCount;//X网格数
+            int yGridCount = YGridCount;//Y网格数
+            int xGridFillCount = XGridFillCount;//X填充网格数
+            int yGridFillCount = YGridFillCount;//Y填充网格数
+            Brush gridLineColor = GridLineColor;//线颜色
+            Brush gridFillColor = GridFillColor;//填充颜色
+            double gridFillThickness = GridFillThickness;//线宽
+            int solidDashes = SolidDashes;//实线长度
+            int virtualDashes = VirtualDashes;//虚线长度
 
-                VisualBrush gridBrush = new();
-                double gridSpaceX = width / xGridCount;
-                double gridSpaceY = height / yGridCount;
+            VisualBrush gridBrush = new();
+            double gridSpaceX = width / xGridCount;
+            double gridSpaceY = height / yGridCount;
 
-                if (gridSpaceX > 0 && gridSpaceY > 0)
+            if (gridSpaceX > 0 && gridSpaceY > 0)
+            {
+                DrawingVisual gridVisual = new();
+                using (DrawingContext dc = gridVisual.RenderOpen())
                 {
-                    DrawingVisual gridVisual = new();
-                    using (DrawingContext dc = gridVisual.RenderOpen())
+                    Pen gridPen = new Pen(gridLineColor, gridFillThickness) { DashStyle = new DashStyle(new double[] { solidDashes, virtualDashes }, 0) };
+
+                    for (int i = 0; i <= xGridCount; i++)
                     {
-                        Pen gridPen = new Pen(gridLineColor, gridFillThickness) { DashStyle = new DashStyle(new double[] { solidDashes, virtualDashes }, 0) };
-
-                        for (int i = 0; i <= xGridCount; i++)
+                        for (int j = 0; j <= yGridCount; j++)
                         {
-                            for (int j = 0; j <= yGridCount; j++)
-                            {
-                                double cellX = i * gridSpaceX;
-                                double cellY = j * gridSpaceY;
+                            double cellX = i * gridSpaceX;
+                            double cellY = j * gridSpaceY;
 
-                                // 绘制填充矩形
-                                if (j < yGridFillCount - 1 || (j == yGridFillCount - 1 && i < xGridFillCount))
-                                    dc.DrawRectangle(gridFillColor, null, new Rect(cellX, cellY, gridSpaceX, gridSpaceY));
+                            // 绘制填充矩形
+                            if (j < yGridFillCount - 1 || (j == yGridFillCount - 1 && i < xGridFillCount))
+                                dc.DrawRectangle(gridFillColor, null, new Rect(cellX, cellY, gridSpaceX, gridSpaceY));
 
-                                // 绘制垂直线，首尾不绘制
-                                if (i > 0 && cellX != width)
-                                    dc.DrawLine(gridPen, new Point(cellX, 0), new Point(cellX, height));
+                            // 绘制垂直线，首尾不绘制
+                            if (i > 0 && cellX != width)
+                                dc.DrawLine(gridPen, new Point(cellX, 0), new Point(cellX, height));
 
-                                // 绘制水平线，首尾不绘制
-                                if (j > 0 && cellY != height)
-                                    dc.DrawLine(gridPen, new Point(0, cellY), new Point(width, cellY));
-                            }
+                            // 绘制水平线，首尾不绘制
+                            if (j > 0 && cellY != height)
+                                dc.DrawLine(gridPen, new Point(0, cellY), new Point(width, cellY));
                         }
                     }
-                    gridBrush = new VisualBrush(gridVisual)
-                    {
-                        Stretch = Stretch.None,
-                        AlignmentX = AlignmentX.Left,
-                        AlignmentY = AlignmentY.Top,
-                        TileMode = TileMode.None
-                    };
                 }
-
-                ShapeMarker.Fill = gridBrush;
+                gridBrush = new VisualBrush(gridVisual)
+                {
+                    Stretch = Stretch.None,
+                    AlignmentX = AlignmentX.Left,
+                    AlignmentY = AlignmentY.Top,
+                    TileMode = TileMode.None
+                };
             }
+
+            ShapeMarker!.Fill = gridBrush;
+        }
+
+        private bool IsPointInPolygon(List<Point> polygonPoints, Point testPoint)
+        {
+            int numPoints = polygonPoints.Count;
+            bool isInside = false;
+
+            // 遍历多边形的所有边
+            for (int i = 0, j = numPoints - 1; i < numPoints; j = i++)
+            {
+                var pointI = polygonPoints[i];
+                var pointJ = polygonPoints[j];
+
+                // 判断测试点是否在多边形边的两端点的Y坐标之间
+                bool isYInRange = ((pointI.Y > testPoint.Y) != (pointJ.Y > testPoint.Y));
+
+                // 计算射线是否穿过多边形的边
+                bool isXOnRay = (testPoint.X < (pointJ.X - pointI.X) * (testPoint.Y - pointI.Y) / (pointJ.Y - pointI.Y) + pointI.X);
+
+                if (isYInRange && isXOnRay)
+                {
+                    isInside = !isInside;
+                }
+            }
+
+            return isInside;
         }
 
         #endregion
@@ -449,9 +495,8 @@ namespace ImageExLib
         {
             if (ShapePreviewer == null || ShapeMarker == null) return;
 
-            if (ShapeMarker is RectangleShape)
+            if (ShapeMarker is RectangleShape rectShapePre)
             {
-                var rectShapePre = ShapePreviewer as RectangleShape;
                 if (!rectShapePre!.isRepeat && !isRecDrawing) return;//不重绘
 
                 ShapePreviewer!.Visibility = Visibility.Collapsed;
@@ -566,18 +611,18 @@ namespace ImageExLib
             }
             else if (ShapeMarker is PolygonShape)
             {
-                var polygonShape = ShapePreviewer as PolygonShape;
-                if (polygonShape?.Points?.Count == 0) return;
+                var polygonShapePre = ShapePreviewer as PolygonShape;
+                if (polygonShapePre?.Points?.Count == 0) return;
 
                 var point = e.GetPosition(InkCanvas);
                 if (isPolygonDrawing)
                 {
-                    if (ValidPoint(point, polygonShape!.Points)) polygonShape!.Points.Add(point);
+                    if (ValidPoint(point, polygonShapePre!.Points)) polygonShapePre!.Points.Add(point);
                     isPolygonDrawing = false;
                 }
                 else
                 {
-                    polygonShape!.Points[polygonShape!.Points.Count - 1] = point;
+                    polygonShapePre!.Points[polygonShapePre!.Points.Count - 1] = point;
                 }
                 ShapePreviewer.Draw(InkCanvas!);
             }
@@ -625,10 +670,6 @@ namespace ImageExLib
             }
             else if (ShapeMarker is PolygonShape)
             {
-                //todo，后续添加多边形网格&网格坐标
-                ////网格-每次都初始化fill的设置
-                //ShapeMarker.Fill = PolygonFillDefaultBrush;
-
                 if (e.RightButton != MouseButtonState.Pressed) return;
 
                 if (!isPolygonDrawingRedraw) return;
@@ -639,6 +680,8 @@ namespace ImageExLib
                     polygonShapePre!.Points.Clear();
                     ShapeMarker!.Visibility = Visibility.Collapsed;
                     ShapePreviewer!.Visibility = Visibility.Visible;
+
+                    ShapeMarker.Fill = PolygonFillDefaultBrush;
                 }
 
                 polygonShapePre!.Points.Add(e.GetPosition(InkCanvas));
