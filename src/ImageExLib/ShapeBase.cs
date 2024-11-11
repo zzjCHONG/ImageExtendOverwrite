@@ -1,4 +1,5 @@
-﻿using System.Windows;
+﻿using System.Diagnostics;
+using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
 using System.Windows.Shapes;
@@ -34,6 +35,8 @@ namespace ImageExLib.ShapeEx
 
     public class RectangleShape :ShapeBase
     {
+        //repeat-占用右键弹窗事件
+
         public override bool isRepeat { get; set; } = false;
 
         protected override Geometry DefiningGeometry => new RectangleGeometry(new Rect(0, 0, Width, Height));
@@ -183,6 +186,8 @@ namespace ImageExLib.ShapeEx
         public override bool isRepeat { get; set; } = false;//暂不考虑实现重复绘制
 
         public List<Point> Points { get; set; } = new();
+
+        public List<Point> PointsFashioned { get; private set; } = new();
 
         protected override Geometry DefiningGeometry
         {

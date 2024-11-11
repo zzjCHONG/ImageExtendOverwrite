@@ -6,8 +6,6 @@ using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
-using System.Windows.Media.Media3D;
-using System.Windows.Shapes;
 using ImageExLib.ShapeEx;
 using Microsoft.Win32;
 
@@ -18,8 +16,7 @@ namespace ImageExLib
     //网格绘制√
     //command设置填充模式，button设置绘制模式√
     //向外传输当前点击坐标、当前网格坐标、绘制信息——实装时考虑
-
-    //todo，contextmenu事件无法正确传递，待解决
+    //contextmenu事件无法正确传递√
 
     public class ImageEx : ContentControl
     {
@@ -39,6 +36,7 @@ namespace ImageExLib
                 ShapePreviewer = Template.FindName(GetCurrentShapeType(true, command), this) as ShapeBase;
                 ShapeMarker = Template.FindName(GetCurrentShapeType(false, command), this) as ShapeBase;
 
+                isPolygonDrawingRedraw = true;
             }));
 
             CommandBindings.Add(new CommandBinding(GridFillCommand, (obj, args) =>
@@ -59,13 +57,69 @@ namespace ImageExLib
 
                 if (command == Delete)
                 {
-                    //只是隐藏，未实际删除
                     if (command == Delete) ShapeMarker.Visibility = Visibility.Collapsed;
                 }
                 else if (command == ZoomScale)
                 {
+                    if (ShapeMarker is RectangleShape)
+                    {
+                        var marker = ShapeMarker;
+                        var start = marker.PointStart;
+                        var end = marker.PointEnd;
 
+                        var location = new Point(Math.Min(start.X, end.X), Math.Min(start.Y, end.Y));
+                        var center = (location.X + marker.Width / 2, location.Y + marker.Height / 2);
+
+                        var width = marker.Width * DefaultImagePanelScale;
+                        var height = marker.Height * DefaultImagePanelScale;
+
+                        var scaleX = ActualWidth * 0.9 / width; // zoom the 90% width or height
+                        var scaleY = ActualHeight * 0.9 / height;
+
+                        var scale = Math.Min(scaleX, scaleY);
+                        ImagePanelScale = scale * DefaultImagePanelScale;
+
+                        var offsetX = center.Item1 * ImagePanelScale - ActualWidth / 2;
+                        var offsetY = center.Item2 * ImagePanelScale - ActualHeight / 2;
+
+                        Scroll?.ScrollToHorizontalOffset(offsetX);
+                        Scroll?.ScrollToVerticalOffset(offsetY);
+                    }
+                    else if (ShapeMarker is PolygonShape polygonShape)
+                    {
+                        var points = polygonShape!.Points;
+
+                        // 1. 计算多边形的边界框 (bounding box)
+                        double minX = points.Min(p => p.X);
+                        double minY = points.Min(p => p.Y);
+                        double maxX = points.Max(p => p.X);
+                        double maxY = points.Max(p => p.Y);
+
+                        // 定义外接矩形的宽度和高度
+                        double width = maxX - minX;
+                        double height = maxY - minY;
+
+                        // 外接矩形的中心点
+                        var boundingBoxCenter = new Point(minX + width / 2, minY + height / 2);
+
+                        // 2. 计算适合窗口的缩放比例
+                        double scaleX = ActualWidth * 0.9 / (width * DefaultImagePanelScale);
+                        double scaleY = ActualHeight * 0.9 / (height * DefaultImagePanelScale);
+                        double scale = Math.Min(scaleX, scaleY);
+
+                        // 更新 ImagePanelScale 的缩放比例
+                        ImagePanelScale = scale * DefaultImagePanelScale;
+
+                        // 3. 计算偏移量以居中显示
+                        double offsetX = boundingBoxCenter.X * ImagePanelScale - ActualWidth / 2;
+                        double offsetY = boundingBoxCenter.Y * ImagePanelScale - ActualHeight / 2;
+
+                        // 4. 更新滚动条位置，使得外接矩形居中显示
+                        Scroll?.ScrollToHorizontalOffset(offsetX);
+                        Scroll?.ScrollToVerticalOffset(offsetY);
+                    }
                 }
+                else throw new NotImplementedException();
             }));
 
             CommandBindings.Add(new CommandBinding(ImageProcessCommand, (obj, args) =>
@@ -112,7 +166,7 @@ namespace ImageExLib
             OnCanvasLoad();
 
             RectFillDefaultBrush = (Template.FindName(GetCurrentShapeType(true, "RectMarker"), this) as ShapeBase)!.Fill;
-            //PolygonFillDefaultBrush = (Template.FindName(GetCurrentShapeType(true, "PolygonMarker"), this) as ShapeBase)!.Fill;
+            PolygonFillDefaultBrush = (Template.FindName(GetCurrentShapeType(true, "PolygonMarker"), this) as ShapeBase)!.Fill;
         }
 
         public (double x, double y) ImageCurrentPosition
@@ -332,8 +386,6 @@ namespace ImageExLib
 
         #region MarkMenuCommand
 
-        //todo，完善右键菜单选项
-
         public const string Delete = "Delete";
 
         public const string ZoomScale = "ZoomScale";
@@ -373,30 +425,35 @@ namespace ImageExLib
 
         private bool isPointDrawing = false;
 
-        private bool isPolygonDrawing = false;
+        private bool isPolygonDrawing = false;//是否绘制
 
-        private bool isPolygonDrawingReset = false;
+        private bool isPolygonDrawingDone = false;//是否完成一次多边形绘制
+
+        public bool isPolygonDrawingRedraw = false;//重绘多边形
 
         private void OnCanvasLoad()
         {
-            InkCanvas!.PreviewMouseDown += InkCanvas_PreviewMouseDown;
-            InkCanvas.PreviewMouseUp += InkCanvas_PreviewMouseUp;
-            InkCanvas.PreviewMouseMove += InkCanvas_PreviewMouseMove;
+            InkCanvas!.PreviewMouseDown += OnCanvasPreviewMouseDown;
+            InkCanvas.PreviewMouseMove += OnCanvasPreviewMouseMove;
+            InkCanvas!.PreviewMouseUp += OnCanvasPreviewMouseUp;
         }
 
         private void OnCanvasUnload()
         {
-            InkCanvas!.PreviewMouseDown -= InkCanvas_PreviewMouseDown;
-            InkCanvas.PreviewMouseUp -= InkCanvas_PreviewMouseUp;
-            InkCanvas.PreviewMouseMove -= InkCanvas_PreviewMouseMove;
+            InkCanvas!.PreviewMouseDown -= OnCanvasPreviewMouseDown;
+            InkCanvas!.PreviewMouseUp -= OnCanvasPreviewMouseUp;
+            InkCanvas.PreviewMouseMove -= OnCanvasPreviewMouseMove;
         }
 
-        private void InkCanvas_PreviewMouseUp(object sender, MouseButtonEventArgs e)
+        private void OnCanvasPreviewMouseUp(object sender, MouseButtonEventArgs e)
         {
             if (ShapePreviewer == null || ShapeMarker == null) return;
 
             if (ShapeMarker is RectangleShape)
             {
+                var rectShapePre = ShapePreviewer as RectangleShape;
+                if (!rectShapePre!.isRepeat && !isRecDrawing) return;//不重绘
+
                 ShapePreviewer!.Visibility = Visibility.Collapsed;
                 InkCanvas!.Cursor = Cursors.Arrow;
 
@@ -413,15 +470,6 @@ namespace ImageExLib
 
                 ShapePreviewer.Clear(InkCanvas);
                 isRecDrawing = false;
-
-                //if (ValidRange(e))
-                //{
-                //    var contextMenu = Template.FindName("ImageContextMenu", this) as ContextMenu;
-                //    if (contextMenu != null && e.ChangedButton == MouseButton.Right)
-                //    {
-                //        contextMenu.IsOpen = true;
-                //    }
-                //}
             }
             else if (ShapeMarker is LineShape)
             {
@@ -457,25 +505,44 @@ namespace ImageExLib
             }
             else if (ShapeMarker is PolygonShape)
             {
-
+                //todo,增加处理，省去第一次弹窗
             }
 
             RefreshShapeData();//刷新绘制数据
-
         }
 
-        private void InkCanvas_PreviewMouseMove(object sender, MouseEventArgs e)
+        private void OnCanvasPreviewMouseMove(object sender, MouseEventArgs e)
         {
             if (ShapePreviewer == null || ShapeMarker == null) return;
 
             if (ShapeMarker is RectangleShape)
             {
-                if (isRecDrawing)
+                if (e.RightButton != MouseButtonState.Pressed) return;
+
+                var rectShapePre = ShapePreviewer as RectangleShape;
+                if (rectShapePre!.isRepeat)
                 {
+                    //重绘
+                    if (isRecDrawing)
+                    {
+                        InkCanvas!.Cursor = Cursors.Cross;
+                        ShapePreviewer!.Visibility = Visibility.Visible;
+                        ShapePreviewer!.PointEnd = e.GetPosition(InkCanvas);
+                        ShapePreviewer.Refresh();
+                    }
+                }
+                else
+                {
+                    //不重绘
+                    isRecDrawing = true;
+                    ShapeMarker.Fill = RectFillDefaultBrush;
+                    ShapeMarker!.Visibility = Visibility.Collapsed;
                     InkCanvas!.Cursor = Cursors.Cross;
+
                     ShapePreviewer!.Visibility = Visibility.Visible;
                     ShapePreviewer!.PointEnd = e.GetPosition(InkCanvas);
                     ShapePreviewer.Refresh();
+                    ShapePreviewer.Draw(InkCanvas);
                 }
             }
             else if (ShapeMarker is LineShape)
@@ -516,7 +583,7 @@ namespace ImageExLib
             }
         }
 
-        private void InkCanvas_PreviewMouseDown(object sender, MouseButtonEventArgs e)
+        private void OnCanvasPreviewMouseDown(object sender, MouseButtonEventArgs e)
         {
             if (ShapePreviewer == null || ShapeMarker == null) return;
 
@@ -524,11 +591,21 @@ namespace ImageExLib
             {
                 if (e.RightButton != MouseButtonState.Pressed) return;
 
-                ShapeMarker.Fill = RectFillDefaultBrush;
-                ShapeMarker!.Visibility = Visibility.Collapsed;
-                ShapePreviewer.Draw(InkCanvas!);
-                ShapePreviewer.PointStart = e.GetPosition(InkCanvas);
-                isRecDrawing = true;
+                var rectShapePre = ShapePreviewer as RectangleShape;
+                if (rectShapePre!.isRepeat)
+                {
+                    //重绘
+                    ShapeMarker.Fill = RectFillDefaultBrush;
+                    ShapePreviewer.Draw(InkCanvas!);
+                    ShapePreviewer.PointStart = e.GetPosition(InkCanvas);
+                    isRecDrawing = true;
+                }
+                else
+                {
+                    //不重绘
+                    ShapePreviewer.PointStart = e.GetPosition(InkCanvas);
+                    ShapePreviewer.Draw(InkCanvas!);
+                }
             }
             else if (ShapeMarker is LineShape)
             {
@@ -549,55 +626,50 @@ namespace ImageExLib
             else if (ShapeMarker is PolygonShape)
             {
                 //todo，后续添加多边形网格&网格坐标
-
                 ////网格-每次都初始化fill的设置
                 //ShapeMarker.Fill = PolygonFillDefaultBrush;
 
                 if (e.RightButton != MouseButtonState.Pressed) return;
 
+                if (!isPolygonDrawingRedraw) return;
                 var polygonShapePre = ShapePreviewer as PolygonShape;
-                if (isPolygonDrawingReset)
+
+                if (isPolygonDrawingDone)
                 {
                     polygonShapePre!.Points.Clear();
                     ShapeMarker!.Visibility = Visibility.Collapsed;
                     ShapePreviewer!.Visibility = Visibility.Visible;
                 }
+
                 polygonShapePre!.Points.Add(e.GetPosition(InkCanvas));
                 ShapePreviewer.Draw(InkCanvas!);
                 isPolygonDrawing = true;
-                isPolygonDrawingReset = false;
+                isPolygonDrawingDone = false;
 
                 if (e.ClickCount == 2)
                 {
                     ShapePreviewer!.Visibility = Visibility.Collapsed;
                     ShapeMarker!.Visibility = Visibility.Visible;
-                    var polygonShapeMarker = ShapeMarker as PolygonShape;
-
+                    
                     var sortsPoints = DisposePointsToFormPolygon(polygonShapePre!.Points);
-
-
                     if (sortsPoints.Count < 3)
                     {
                         polygonShapePre!.Points.Clear();
                         ShapeMarker!.Visibility = Visibility.Collapsed;
-                        isPolygonDrawingReset = false;
+                        isPolygonDrawingDone = false;
                     }
+
+                    var polygonShapeMarker = ShapeMarker as PolygonShape;
                     polygonShapeMarker!.Points = sortsPoints;
                     ShapeMarker?.Draw(InkCanvas!);
-                    isPolygonDrawingReset = true;
-                }
+
+                    isPolygonDrawingDone = true;
+                    isPolygonDrawingRedraw = false;
+                }   
             }
         }
 
-        /// <summary>
-        /// 去除重复点
-        /// 排除相距过近的点
-        /// 排序多边形点
-        /// </summary>
-        /// <param name="points"></param>
-        /// <returns></returns>
-        /// <exception cref="ArgumentException"></exception>
-        private static List<Point> DisposePointsToFormPolygon(List<Point> points)
+        private  List<Point> DisposePointsToFormPolygon(List<Point> points)
         {
             if (points == null || points.Count < 3)
             {
@@ -608,19 +680,26 @@ namespace ImageExLib
             var distinctPoints = points.DistinctBy(p => new { p.X, p.Y }).ToList();
 
             //排除距离相差小于5个像素的点
+            var judge = 5;
             var filteredPoints = new List<Point>();
             filteredPoints.Add(distinctPoints[0]);
             for (var i = 1; i < distinctPoints.Count; i++)
             {
-                var lastPoint = filteredPoints.Last();
                 var currentPoint = distinctPoints[i];
+                bool isFarEnough = true;
 
-                // 判断点之间的距离，使用点与点的坐标差值来避免重复计算
-                double dx = currentPoint.X - lastPoint.X;
-                double dy = currentPoint.Y - lastPoint.Y;
-                double distance = Math.Sqrt(dx * dx + dy * dy);
+                foreach (var existingPoint in filteredPoints)
+                {
+                    double dx = currentPoint.X - existingPoint.X;
+                    double dy = currentPoint.Y - existingPoint.Y;
+                    if (Math.Sqrt(dx * dx + dy * dy) < judge)
+                    {
+                        isFarEnough = false;
+                        break;
+                    }
+                }
 
-                if (distance >= 5)
+                if (isFarEnough)
                     filteredPoints.Add(currentPoint);
             }
 
@@ -648,19 +727,6 @@ namespace ImageExLib
         private double Distance(Point p1, Point p2)
         {
             return Math.Sqrt(Math.Pow(p1.X - p2.X, 2) + Math.Pow(p1.Y - p2.Y, 2));
-        }
-
-        private bool ValidRange(MouseEventArgs e)
-        {
-            if (ShapeMarker!.ActualHeight == 0 || ShapeMarker.ActualWidth == 0) return false;
-
-            var pos = e.GetPosition(InkCanvas);
-            var start = ShapeMarker!.PointStart;
-            var end = ShapeMarker.PointEnd;
-            bool isXRight = pos.X >= start.X && pos.X <= end.X || pos.X <= start.X && pos.X >= end.X;
-            bool isYRight = pos.Y >= start.Y && pos.Y <= end.Y || pos.Y <= start.Y && pos.Y >= end.Y;
-
-            return isXRight && isYRight;
         }
 
         private void CleanDraw()
@@ -697,10 +763,10 @@ namespace ImageExLib
                     shapesInfo.Add($"PointShape: Position({ellipse.PointStart.X.ToString("0.00")}, " +
                         $"{ellipse.PointStart.Y.ToString("0.00")}), Size({ellipse.RadiusX.ToString("0.00")}, {ellipse.RadiusY.ToString("0.00")})");
                 }
-                else if (ShapeMarker is PolygonShape && child is PolygonShape polygon && isPolygonDrawingReset)
+                else if (ShapeMarker is PolygonShape && child is PolygonShape polygon && isPolygonDrawingDone)
                 {
-                    var polygonPoints = DisposePointsToFormPolygon(polygon!.Points);
-                    string points = string.Join(",# ", polygonPoints.Select(p => $"{p.X:F2}, {p.Y:F2}"));
+                    //var polygonPoints = DisposePointsToFormPolygon(polygon!.Points);
+                    string points = string.Join(",# ", polygon!.Points.Select(p => $"{p.X:F2}, {p.Y:F2}"));
                     shapesInfo.Add($"Polygon: Points({points})");
                 }
             }

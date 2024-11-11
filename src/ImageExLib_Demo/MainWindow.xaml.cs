@@ -64,7 +64,7 @@ namespace ImageExLib_Demo
                 }
                 else
                 {
-                    var img = Cv2.ImRead(@"C:\Users\Administrator\Desktop\控件测试\2_24bit.jpg");
+                    var img = Cv2.ImRead(@"C:\Users\Administrator\Desktop\UI\2_24bit.jpg");
                     var source = img.ToBitmapSource();
                     ImageEx.ImageSource = source;
                 }
@@ -240,6 +240,11 @@ namespace ImageExLib_Demo
             var gridXY = viewer.GridFillCurrentPos;
             Debug.WriteLine($"GridCurrentPos  {gridXY.x}-{gridXY.y}");
 
+        }
+
+        private void ReDraw_Click(object sender, RoutedEventArgs e)
+        {
+            ImageEx.isPolygonDrawingRedraw = true;
         }
     }
 }
