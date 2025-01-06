@@ -68,7 +68,17 @@ namespace ImageExLib_Demo
                     var source = img.ToBitmapSource();
                     ImageEx.ImageSource = source;
                 }
-            }          
+            }
+
+          ImageEx.OnPointAppended += p => {
+
+              Debug.WriteLine($"point_{p}");
+          };
+
+            ImageEx.OnPointRect += (start, end) => {
+
+                Debug.WriteLine($"start_{start} end_{end}");
+            };
         }
 
         #region

@@ -20,6 +20,10 @@ namespace ImageExLib
 
     public class ImageEx : ContentControl
     {
+        public event Action<Point>? OnPointAppended;
+
+        public event Action<Point, Point>? OnPointRect;
+
         static ImageEx()
         {
             DefaultStyleKeyProperty.OverrideMetadata(typeof(ImageEx), new FrameworkPropertyMetadata(typeof(ImageEx)));
@@ -30,6 +34,7 @@ namespace ImageExLib
             CommandBindings.Add(new CommandBinding(MarkerShapeCommand, (obj, args) =>
             {
                 if (args.Parameter is not string command) return;
+                if (InkCanvas == null) return;
 
                 CleanDraw();//清除之前留下的绘制图形
 
@@ -140,7 +145,7 @@ namespace ImageExLib
                     bool? result = saveFileDialog.ShowDialog();
                     if (result == true)
                     {
-                        var bitmapImage = InkCanvastoBitmapImage(InkCanvas);
+                        var bitmapImage = ImageEx.InkCanvastoBitmapImage(InkCanvas);
                         SaveBitmapImage(bitmapImage, saveFileDialog.FileName);
                         OpenFolderAndSelectFile(saveFileDialog.FileName);
                     }
@@ -198,7 +203,7 @@ namespace ImageExLib
                     }
                     else if (ShapeMarker is PolygonShape polygonMarker)
                     {
-                        points=polygonMarker.Points;
+                        points = polygonMarker.Points;
                         double minX = points.Min(p => p.X);
                         double maxX = points.Max(p => p.X);
                         double minY = points.Min(p => p.Y);
@@ -221,9 +226,9 @@ namespace ImageExLib
 
                     int y = (int) Math.Floor((currentPos.Y - _constrastPoint.Y) / _gridSpacingY) + 1;
                     int x = (int) Math.Floor((currentPos.X - _constrastPoint.X) / _gridSpacingX) + 1;
-   
+
                     if (ShapeMarker is PolygonShape)
-                        isPointInPolygon = IsPointInPolygon(points, currentPos);
+                        isPointInPolygon = ImageEx.IsPointInPolygon(points, currentPos);
 
                     if ((y > XGridCount || y <= 0) || (x > YGridCount || x <= 0) || !isPointInPolygon)
                         return (-1, -1);
@@ -235,7 +240,7 @@ namespace ImageExLib
                     return (-1, -1);
                 }
             }
-        }      
+        }
 
         #region GridFillCommand
 
@@ -245,7 +250,7 @@ namespace ImageExLib
             DependencyProperty.Register(nameof(XGridCount), typeof(int), typeof(ImageEx), new PropertyMetadata(5));
 
         public static readonly DependencyProperty YGridCountProperty =
-            DependencyProperty.Register(nameof(YGridCount), typeof(int), typeof(ImageEx), new PropertyMetadata(5)); 
+            DependencyProperty.Register(nameof(YGridCount), typeof(int), typeof(ImageEx), new PropertyMetadata(5));
 
         public static readonly DependencyProperty XGridFillCountProperty =
             DependencyProperty.Register(nameof(XGridFillCount), typeof(int), typeof(ImageEx), new PropertyMetadata(0));
@@ -254,19 +259,19 @@ namespace ImageExLib
             DependencyProperty.Register(nameof(YGridFillCount), typeof(int), typeof(ImageEx), new PropertyMetadata(1));
 
         public static readonly DependencyProperty GridLineColorProperty =
-            DependencyProperty.Register(nameof(GridLineColor),typeof(Brush),typeof(ImageEx),new PropertyMetadata(Brushes.Red));
+            DependencyProperty.Register(nameof(GridLineColor), typeof(Brush), typeof(ImageEx), new PropertyMetadata(Brushes.Red));
 
         public static readonly DependencyProperty GridFillColorProperty =
-            DependencyProperty.Register(nameof(GridFillColor),typeof(Brush),typeof(ImageEx),new PropertyMetadata(Brushes.LightYellow));
+            DependencyProperty.Register(nameof(GridFillColor), typeof(Brush), typeof(ImageEx), new PropertyMetadata(Brushes.LightYellow));
 
         public static readonly DependencyProperty GridFillThicknessProperty =
-            DependencyProperty.Register(nameof(GridFillThickness),typeof(double),typeof(ImageEx),new PropertyMetadata(1.0));
+            DependencyProperty.Register(nameof(GridFillThickness), typeof(double), typeof(ImageEx), new PropertyMetadata(1.0));
 
         public static readonly DependencyProperty XDashesProperty =
-            DependencyProperty.Register(nameof(SolidDashes),typeof(int),typeof(ImageEx),new PropertyMetadata(30));
+            DependencyProperty.Register(nameof(SolidDashes), typeof(int), typeof(ImageEx), new PropertyMetadata(30));
 
         public static readonly DependencyProperty YDashesProperty =
-            DependencyProperty.Register(nameof(VirtualDashes),typeof(int),typeof(ImageEx),new PropertyMetadata(30));
+            DependencyProperty.Register(nameof(VirtualDashes), typeof(int), typeof(ImageEx), new PropertyMetadata(30));
 
 
         public int XGridCount
@@ -334,6 +339,8 @@ namespace ImageExLib
 
         public void RefreshFillGridBrush()
         {
+            if (ShapeMarker == null) return;
+
             double width = 0;
             double height = 0;
             if (ShapeMarker is RectangleShape)
@@ -346,6 +353,10 @@ namespace ImageExLib
                 var points = polygonShapeMarker.Points;
                 width = points.Max(p => p.X) - points.Min(p => p.X);
                 height = points.Max(p => p.Y) - points.Min(p => p.Y);
+            }
+            else
+            {
+                return;
             }
 
             int xGridCount = XGridCount;//X网格数
@@ -402,7 +413,7 @@ namespace ImageExLib
             ShapeMarker!.Fill = gridBrush;
         }
 
-        private bool IsPointInPolygon(List<Point> polygonPoints, Point testPoint)
+        private static bool IsPointInPolygon(List<Point> polygonPoints, Point testPoint)
         {
             int numPoints = polygonPoints.Count;
             bool isInside = false;
@@ -562,7 +573,7 @@ namespace ImageExLib
 
             if (ShapeMarker is RectangleShape)
             {
-                if (e.RightButton != MouseButtonState.Pressed) return;
+                if (e.LeftButton != MouseButtonState.Pressed) return;
 
                 var rectShapePre = ShapePreviewer as RectangleShape;
                 if (rectShapePre!.isRepeat)
@@ -634,7 +645,7 @@ namespace ImageExLib
 
             if (ShapeMarker is RectangleShape)
             {
-                if (e.RightButton != MouseButtonState.Pressed) return;
+                if (e.LeftButton != MouseButtonState.Pressed) return;
 
                 var rectShapePre = ShapePreviewer as RectangleShape;
                 if (rectShapePre!.isRepeat)
@@ -654,13 +665,16 @@ namespace ImageExLib
             }
             else if (ShapeMarker is LineShape)
             {
-                if (e.RightButton != MouseButtonState.Pressed) return;
+                if (e.LeftButton != MouseButtonState.Pressed) return;
+
                 ShapePreviewer.PointStart = e.GetPosition(InkCanvas);
                 isLineDrawing = true;
             }
             else if (ShapeMarker is PointShape)
             {
-                if (e.RightButton != MouseButtonState.Pressed) return;
+                if (e.LeftButton != MouseButtonState.Pressed) return;
+
+                OnPointAppended?.Invoke(e.GetPosition(InkCanvas));
 
                 isPointDrawing = true;
                 ShapePreviewer.Draw(InkCanvas!, true);
@@ -670,7 +684,7 @@ namespace ImageExLib
             }
             else if (ShapeMarker is PolygonShape)
             {
-                if (e.RightButton != MouseButtonState.Pressed) return;
+                if (e.LeftButton != MouseButtonState.Pressed) return;
 
                 if (!isPolygonDrawingRedraw) return;
                 var polygonShapePre = ShapePreviewer as PolygonShape;
@@ -693,7 +707,7 @@ namespace ImageExLib
                 {
                     ShapePreviewer!.Visibility = Visibility.Collapsed;
                     ShapeMarker!.Visibility = Visibility.Visible;
-                    
+
                     var sortsPoints = DisposePointsToFormPolygon(polygonShapePre!.Points);
                     if (sortsPoints.Count < 3)
                     {
@@ -708,11 +722,11 @@ namespace ImageExLib
 
                     isPolygonDrawingDone = true;
                     isPolygonDrawingRedraw = false;
-                }   
+                }
             }
         }
 
-        private  List<Point> DisposePointsToFormPolygon(List<Point> points)
+        private List<Point> DisposePointsToFormPolygon(List<Point> points)
         {
             if (points == null || points.Count < 3)
             {
@@ -781,7 +795,7 @@ namespace ImageExLib
                     InkCanvas.Children[i] is PointShape ||
                     InkCanvas.Children[i] is PolygonShape)
                 {
-                    InkCanvas.Children.RemoveAt(i);               
+                    InkCanvas.Children.RemoveAt(i);
                 }
             }
         }
@@ -800,6 +814,8 @@ namespace ImageExLib
                     double left = InkCanvas.GetLeft(rectangle);
                     double top = InkCanvas.GetTop(rectangle);
                     shapesInfo.Add($"Rectangle: Position({left.ToString("0.00")}, {top.ToString("0.00")}), Size({rectangle.Width.ToString("0.00")}, {rectangle.Height.ToString("0.00")})");
+
+                    OnPointRect!.Invoke(ShapeMarker.PointStart, ShapeMarker.PointEnd);
                 }
                 else if (ShapeMarker is PointShape && child is PointShape ellipse)
                 {
@@ -813,6 +829,8 @@ namespace ImageExLib
                     shapesInfo.Add($"Polygon: Points({points})");
                 }
             }
+            if (ShapeMarker is PolygonShape && !isPolygonDrawingDone) return;
+
             Debug.WriteLine(string.Join("\r\n", shapesInfo), "Shapes Info");//信息输出demo
         }
 
@@ -842,6 +860,9 @@ namespace ImageExLib
                 case "PolygonMarker":
                     name = isPreviewer ? "PART_SHAPE_POLYGON_PREVIEWER" : "PART_SHAPE_POLYGON_MARKER";
                     break;
+                case "QuitDrawing":
+                    name = string.Empty;
+                    break;
                 default:
                     throw new NotImplementedException("Not Valid Command!");
             }
@@ -858,17 +879,19 @@ namespace ImageExLib
 
         public const string MsgBox = "MsgBox";
 
-        private BitmapImage InkCanvastoBitmapImage(InkCanvas inkCanvas)
+        private static BitmapImage? InkCanvastoBitmapImage(InkCanvas inkCanvas)
         {
-            BitmapImage bitmapImage = new BitmapImage();
+            BitmapImage bitmapImage = new();
             int width = (int) inkCanvas.ActualWidth;
             int height = (int) inkCanvas.ActualHeight;
 
-            RenderTargetBitmap rtb = new RenderTargetBitmap(width, height, 96, 96, PixelFormats.Pbgra32);
-            DrawingVisual dv = new DrawingVisual();
+            if (width < 10 || height < 10) return null;
+
+            RenderTargetBitmap rtb = new(width, height, 96, 96, PixelFormats.Pbgra32);
+            DrawingVisual dv = new();
             using (DrawingContext dc = dv.RenderOpen())
             {
-                VisualBrush vb = new VisualBrush(inkCanvas);
+                VisualBrush vb = new(inkCanvas);
                 dc.DrawRectangle(vb, null, new Rect(new Point(), new Size(width, height)));
             }
             rtb.Render(dv);
@@ -922,6 +945,11 @@ namespace ImageExLib
             {
                 encoder.Save(fileStream);
             }
+        }
+
+        public BitmapImage GetBitmapImage()
+        {
+            return ImageEx.InkCanvastoBitmapImage(InkCanvas!);
         }
 
         private void OpenFolderAndSelectFile(string fileFullName)

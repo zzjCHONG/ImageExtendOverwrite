@@ -26,14 +26,14 @@ namespace ImageExLib.ShapeEx
             throw new NotImplementedException();
         }
 
-        public virtual void Draw(InkCanvas canvas, bool isPreShape=false)
+        public virtual void Draw(InkCanvas canvas, bool isPreShape = false)
         {
             throw new NotImplementedException();
         }
 
     }
 
-    public class RectangleShape :ShapeBase
+    public class RectangleShape : ShapeBase
     {
         //repeat-占用右键弹窗事件
 
@@ -61,7 +61,7 @@ namespace ImageExLib.ShapeEx
                 canvas.Children.Add(this);
             }
             else
-            {               
+            {
                 var ShapeMarkerStyle = FindName("PART_SHAPE_RECT_MARKER") as RectangleShape;
 
                 if (ShapeMarkerStyle != null)
@@ -102,7 +102,7 @@ namespace ImageExLib.ShapeEx
 
         public override void Draw(InkCanvas canvas, bool isPreShape)
         {
-            if (!isRepeat|| isPreShape)
+            if (!isRepeat || isPreShape)
             {
                 canvas.Children.Remove(this);
                 canvas.Children.Add(this);
@@ -110,7 +110,7 @@ namespace ImageExLib.ShapeEx
             else
             {
                 var ShapeMarkerStyle = FindName("PART_SHAPE_LINE_MARKER") as LineShape;
-                if(ShapeMarkerStyle != null)
+                if (ShapeMarkerStyle != null)
                 {
                     var newLine = new LineShape
                     {
@@ -138,17 +138,17 @@ namespace ImageExLib.ShapeEx
         public override bool isRepeat { get; set; } = true;
 
         public double RadiusX { get; set; }
-        public double RadiusY { get; set; } 
+        public double RadiusY { get; set; }
 
-        protected override Geometry DefiningGeometry => new EllipseGeometry( PointStart, RadiusX, RadiusY);
+        protected override Geometry DefiningGeometry => new EllipseGeometry(PointStart, RadiusX, RadiusY);
 
         public override void Refresh()
         {
-            RadiusX = 5;
-            RadiusY = 5;
+            RadiusX = 2;
+            RadiusY = 2;
         }
 
-        public override void Draw(InkCanvas canvas,bool isPreShape)
+        public override void Draw(InkCanvas canvas, bool isPreShape)
         {
             if (!isRepeat || isPreShape)
             {
@@ -176,7 +176,7 @@ namespace ImageExLib.ShapeEx
                 else
                 {
                     canvas.Children.Add(this);
-                } 
+                }
             }
         }
     }
